@@ -1,6 +1,6 @@
 ---
 name: conductor
-description: "Conductor: multi-agent intelligence with built-in BS detection. Assembles expert teams, makes them challenge each other, validates claims, catches hallucinations. Works for any domain."
+description: "Conductor: orchestrate a swarm of AI experts on any question. Specialists debate, research, and validate — then a polymath supervisor delivers the verdict. One command, multiple minds, stress-tested answers."
 version: 2.1.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com

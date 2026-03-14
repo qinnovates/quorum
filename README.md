@@ -1,33 +1,34 @@
 # Conductor
 
-**Multi-agent intelligence with built-in BS detection for Claude Code.**
+**Orchestrate a swarm of AI experts on any question. One command, multiple minds, stress-tested answers.**
 
-Conductor assembles a team of AI experts, makes them challenge each other, validates every claim, catches hallucinations, and tells you what survived the scrutiny.
+Type one command. Conductor spins up a team of specialists — researchers, analysts, skeptics, domain experts — makes them work the problem from every angle, debate each other, validate their claims, and deliver a synthesized verdict you can actually act on.
 
-Works for any domain. Medical questions, business strategy, engineering decisions, policy analysis, creative projects — one command, multiple expert perspectives, validated output.
+Like having a room full of smart people argue about your question before anyone gives you the answer.
 
 ```
 /conductor "your question here"
 ```
 
-Built by [qinnovate](https://qinnovate.com)
+Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
 ## Why Conductor?
 
-When you ask AI a question, you get one perspective. It sounds confident. It might be wrong. You have no way to know.
+When you ask AI a question, you get one perspective. It sounds confident. It might be completely wrong. And you have no way to know.
 
-Conductor fixes this by doing what good teams do naturally:
+Conductor gives you what a single AI agent never can: **a second opinion, a third opinion, a devil's advocate, and a fact-checker — all at once.**
 
-- **The expert** gives the informed answer
-- **The skeptic** argues the other side
-- **The junior** asks "wait, why?" and catches unstated assumptions
-- **The outsider** brings a completely different lens
+Here's what happens when you run it:
 
-Then a supervisor — who sees all perspectives — writes the synthesis, weighing reasoning quality over vote counts. Claims without sources get flagged. Contradictions get surfaced. Easy consensus gets extra scrutiny.
+1. **A team assembles.** Conductor picks the right experts for your question — a strategist, a skeptic, a researcher, a domain specialist, someone from a completely different field
+2. **They work independently.** No groupthink. Each expert tackles the question from their unique angle without seeing anyone else's answer
+3. **They challenge each other.** The skeptic pokes holes. The researcher checks sources. Debate pairs argue the real disagreements
+4. **A supervisor synthesizes.** Not a vote count — an authored judgment that weighs reasoning quality, surfaces buried insights, and tells you what actually matters
+5. **You get the verdict.** What survived scrutiny, what's still disputed, and what to do next
 
-**The result: answers that have been stress-tested before you see them.**
+**The result: answers that have been stress-tested by multiple minds before you see them.**
 
 ## Quick Start
 
