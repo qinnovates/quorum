@@ -33,7 +33,7 @@ Here's what happens when you run it:
 ## Quick Start
 
 ```bash
-# Install
+# Install (works with Claude Code and Cowork)
 claude install qinnovates/quorum
 
 # Ask any question
