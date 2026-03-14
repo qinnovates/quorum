@@ -1,6 +1,6 @@
-# Conductor Prompt Templates
+# Quorum Prompt Templates
 
-Prompt template reference for Conductor. These templates define how each agent type thinks and responds.
+Prompt template reference for Quorum. These templates define how each agent type thinks and responds.
 
 ---
 
@@ -62,7 +62,7 @@ Every source searched, search terms used, number of relevant results
 
 | Variable | Description | Source |
 |----------|-------------|--------|
-| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/conductor` invocation. |
+| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/quorum` invocation. |
 | `{{ASSIGNED_SOURCES}}` | The specific databases or search engines this agent should use (e.g., "PubMed, Cochrane" or "IEEE, arXiv"). | Set by the Supervisor in Phase 0, Step 3 based on domain classification and partition strategy. No two research agents share the same source list. |
 | `{{ASSIGNED_FACET}}` | The sub-topic or angle this agent should focus on (e.g., "mechanisms," "treatments," "risks/side effects"). | Set by the Supervisor in Phase 0, Step 3. Used to prevent agents from duplicating coverage. |
 | `{{ASSIGNED_DATE_RANGE}}` | An optional year range filter (e.g., "2020-2026" or "pre-2010 seminal work"). | Set by the Supervisor in Phase 0, Step 3. Omitted or marked "if applicable" when time partitioning is not needed. |
@@ -126,7 +126,7 @@ Produce:
 | `{{STANCE_DIRECTIVE}}` | An explicit position or angle the agent should argue from (e.g., "You believe regulatory caution is paramount" or "You prioritize engineering feasibility over theoretical elegance"). | Assigned by the Supervisor to ensure intellectual diversity. At least 2 agents must have opposing stances. |
 | `{{CONTENT}}` | The full text of the artifact being reviewed (document, code, strategy, etc.). | Provided by the user via `--artifact PATH`. The Supervisor reads the file and injects its contents here. Only present in REVIEW and HYBRID modes. |
 | `{{RESEARCH_POOL}}` | The deduplicated evidence base compiled from all research agents after Phase 2 triage. | Built by the Supervisor in Phase 2. Only present in RESEARCH and HYBRID modes. Not available during initial Phase 1 runs in RESEARCH mode (agents get it before Phase 3 cross-review). |
-| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/conductor` invocation. |
+| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/quorum` invocation. |
 | `{{SEED_QUESTION_1}}`, `{{SEED_QUESTION_2}}` | Unique focus questions that direct this agent's attention to a specific angle no other agent covers. | Written by the Supervisor in Phase 0, Step 3. Each agent gets different seed questions to prevent redundant analysis. |
 
 ### Tips
@@ -255,7 +255,7 @@ Respond with:
 | Variable | Description | Source |
 |----------|-------------|--------|
 | `{{POSITION_NAME}}` | A label for this agent's role in the dialogue (e.g., "Thesis: Open-Source Advocate" or "Antithesis: Proprietary Control Defender"). | Assigned by the Supervisor when framing the dialectic in Phase 0. |
-| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/conductor` invocation. |
+| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/quorum` invocation. |
 | `{{THESIS_OR_ANTITHESIS}}` | A clear statement of this agent's starting position (e.g., "Open-sourcing the core product will accelerate adoption and build an ecosystem moat that outweighs revenue risk"). | Written by the Supervisor. Must be the strongest intellectually honest version of this side, not a strawman. |
 | `{{WHY_THIS_POSITION_IS_INTELLECTUALLY_HONEST}}` | The philosophical or empirical grounding for the position (e.g., "Network effects in developer tools consistently favor open ecosystems -- Linux, Kubernetes, VS Code all followed this pattern"). | Written by the Supervisor. This prevents agents from arguing positions they cannot genuinely defend. |
 | `{{PREVIOUS_RESPONSE}}` | The other agent's most recent response in the dialogue. Empty or marked "This is the opening round" for Round 1. | Taken from the previous round's output by the Supervisor. Each round, the Supervisor passes one agent's response to the other. |
@@ -303,7 +303,7 @@ Be adversarial. The swarm will respond to your critique, so make it count.
 | `{{N}}` | Total number of agents in the swarm. | Calculated by the Supervisor from the swarm configuration (default 5, or set via `--size`). |
 | `{{R_COUNT}}` | Number of research agents in the swarm. | Calculated by the Supervisor based on mode (0 in REVIEW mode, ~30% in RESEARCH mode, ~20% in HYBRID mode). |
 | `{{A_COUNT}}` | Number of analysis agents in the swarm. | Calculated by the Supervisor based on mode and total swarm size after subtracting research and adversarial agents. |
-| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/conductor` invocation. |
+| `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/quorum` invocation. |
 
 ### Tips
 

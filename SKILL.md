@@ -1,6 +1,6 @@
 ---
-name: conductor
-description: "Conductor: orchestrate a swarm of AI experts on any question. Specialists debate, research, and validate — then a polymath supervisor delivers the verdict. One command, multiple minds, stress-tested answers."
+name: quorum
+description: "Quorum: orchestrate a swarm of AI experts on any question. Specialists debate, research, and validate — then a polymath supervisor delivers the verdict. One command, multiple minds, stress-tested answers."
 version: 2.1.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
@@ -16,17 +16,17 @@ allowed-tools:
   - WebFetch
 ---
 
-# Conductor
+# Quorum
 
 Multi-agent intelligence for any question. Assembles a team of experts, makes them challenge each other, validates the answer, and tells you what survived the scrutiny.
 
-Built by [qinnovate](https://qinnovate.com) | [Full docs on GitHub](https://github.com/qinnovates/conductor)
+Built by [qinnovate](https://qinnovate.com) | [Full docs on GitHub](https://github.com/qinnovates/quorum)
 
-## Why Conductor
+## Why Quorum
 
 Every multi-agent tool in the Claude Code ecosystem — Claude Swarm, Claude Squad, Auto-Claude, kieranklaassen's orchestration skill — does the same thing: dispatches tasks to agents and collects results. They are **task routers**, not reasoning systems.
 
-Conductor is different. It is the only plugin that treats multi-agent orchestration as an **epistemic problem** — how do you get closer to truth when no single agent has the full picture?
+Quorum is different. It is the only plugin that treats multi-agent orchestration as an **epistemic problem** — how do you get closer to truth when no single agent has the full picture?
 
 ### Built-in BS detection
 
@@ -36,7 +36,7 @@ Every swarm includes agents whose job is to poke holes in the answer before you 
 - The **Naive User** asks "wait, why?" — catching jargon, leaps in logic, and unstated assumptions that experts gloss over
 - The **Domain Outsider** brings a completely different lens — a physicist reviewing a marketing plan, an economist reviewing a medical question — because the best insights often come from outside
 
-This is how good teams already work. The CFO challenges the CTO. The junior asks the question nobody else will. The outside consultant sees what insiders can't. Conductor makes that structure automatic.
+This is how good teams already work. The CFO challenges the CTO. The junior asks the question nobody else will. The outside consultant sees what insiders can't. Quorum makes that structure automatic.
 
 ### Design Principles
 
@@ -52,28 +52,28 @@ This is how good teams already work. The CFO challenges the CTO. The junior asks
 
 Other tools ask: *"How do I get agents to complete tasks faster?"*
 
-Conductor asks: *"How do I get agents to be **right**?"*
+Quorum asks: *"How do I get agents to be **right**?"*
 
 That is the difference between a task dispatcher and a reasoning amplifier.
 
 ## Quick Start
 
 ```
-/conductor "your question here"
+/quorum "your question here"
 ```
 
 That's it. Default is fast mode (5 agents, 1 round). For deeper analysis:
 ```
-/conductor "your question" --full                    # 8 agents, 2 rounds, independent validation
-/conductor "your question" --artifact file.md        # Review a specific document
-/conductor "your question" --rigor dialectic         # Socratic deep-dive (2 agents, multiple rounds)
-/conductor "your question" --dry-run                 # See the plan before running
+/quorum "your question" --full                    # 8 agents, 2 rounds, independent validation
+/quorum "your question" --artifact file.md        # Review a specific document
+/quorum "your question" --rigor dialectic         # Socratic deep-dive (2 agents, multiple rounds)
+/quorum "your question" --dry-run                 # See the plan before running
 ```
 
 ## Invocation
 
 ```
-/conductor "<topic or question>" [options]
+/quorum "<topic or question>" [options]
 ```
 
 ### Options
@@ -99,20 +99,20 @@ That's it. Default is fast mode (5 agents, 1 round). For deeper analysis:
 
 ### Examples
 ```
-/conductor "Should we use Rust or Go for our CLI tool?" --lite
+/quorum "Should we use Rust or Go for our CLI tool?" --lite
 ```
 Minimal run: 5 agents, 1 round, no cross-AI gate. Fast and cheap.
 
 ```
-/conductor "Review our go-to-market strategy" --artifact strategy.md --no-web --no-save
+/quorum "Review our go-to-market strategy" --artifact strategy.md --no-web --no-save
 ```
 Private review: no web searches, no data leaves your machine, nothing saved to disk.
 ```
-/conductor "Is intermittent fasting safe for senior dogs with kidney disease?"
-/conductor "Review our go-to-market strategy" --artifact strategy.md --rigor high
-/conductor "What are the most promising EEG-based authentication methods?" --mode research
-/conductor "Should we use Rust or Go for our CLI tool?" --size 6 --rounds 1
-/conductor "Evaluate the ethical implications of emotion-detecting AI in schools" --size 12
+/quorum "Is intermittent fasting safe for senior dogs with kidney disease?"
+/quorum "Review our go-to-market strategy" --artifact strategy.md --rigor high
+/quorum "What are the most promising EEG-based authentication methods?" --mode research
+/quorum "Should we use Rust or Go for our CLI tool?" --size 6 --rounds 1
+/quorum "Evaluate the ethical implications of emotion-detecting AI in schools" --size 12
 ```
 
 ## Safety & Privacy
@@ -148,7 +148,7 @@ This plugin may make the following external calls depending on configuration:
 | Web page fetches | RESEARCH/HYBRID mode | URLs from search results | Use `--no-web` |
 | Independent review agent | Phase 5 | Synthesis summary (internal only) | Use `--no-cross-ai` |
 
-**For maximum privacy:** `/conductor "query" --no-web --no-cross-ai --no-save`
+**For maximum privacy:** `/quorum "query" --no-web --no-cross-ai --no-save`
 
 ### Tool Permissions by Role
 
@@ -165,7 +165,7 @@ Agents should never be spawned with `Bash`, `Write`, or `Edit` permissions. Only
 
 ## Validation & Hallucination Detection
 
-Every claim in every Conductor report goes through a multi-layer validation pipeline. This is not optional.
+Every claim in every Quorum report goes through a multi-layer validation pipeline. This is not optional.
 
 ### Layer 1: Source Grading (Research Agents)
 Every finding gets an evidence tier:
@@ -433,7 +433,7 @@ The supervisor writes the final report. This is not aggregation — it is **auth
 | User | End-user perspective | Naive user, power user, patient, customer |
 | Business | Commercial viability | CFO, investor, sales, ops |
 
-### How Conductor Prevents Groupthink
+### How Quorum Prevents Groupthink
 - **Assigned positions**: Each agent argues from a specific stance, not just "give your opinion"
 - **Controlled information**: Not all agents see the same context — adversarial agents see less, which prevents anchoring
 - **Different focus areas**: No two agents answer the same question — the supervisor assigns unique seed questions
@@ -490,7 +490,7 @@ Instead of N parallel agents debating once, the swarm becomes a **two-voice dial
 
 **Example:**
 ```
-/conductor "Should we open-source our core product?" --rigor dialectic
+/quorum "Should we open-source our core product?" --rigor dialectic
 ```
 Instead of 8 agents giving you 8 opinions, two agents spend 4 rounds drilling into the real tension: control vs. community, moat vs. distribution, short-term revenue vs. long-term ecosystem. The synthesis might be "open-source the runtime, keep the orchestration layer proprietary" — an answer no single agent would have started with.
 
@@ -498,7 +498,7 @@ Instead of 8 agents giving you 8 opinions, two agents spend 4 rounds drilling in
 
 Most AI tools give you answers. Dialectic mode gives you **understanding.** The difference is that answers become obsolete when conditions change. Understanding lets you generate new answers on the fly, because you know where the fault lines are.
 
-Socrates never told anyone the answer. He asked questions until the other person found it themselves. Conductor's dialectic mode does the same thing — except both sides are trying to find it, and you get to watch the discovery happen.
+Socrates never told anyone the answer. He asked questions until the other person found it themselves. Quorum's dialectic mode does the same thing — except both sides are trying to find it, and you get to watch the discovery happen.
 
 ## Prompt Templates
 
@@ -697,7 +697,7 @@ What the swarm collectively could not evaluate.
 
 ---
 
-*Generated by Conductor ([qinnovate.com](https://qinnovate.com))*
+*Generated by Quorum ([qinnovate.com](https://qinnovate.com))*
 
 ## Appendix: Agent Reports
 <details><summary>Full agent reports (click to expand)</summary>
@@ -747,4 +747,4 @@ State saved to `_swarm/sessions/SESSION_ID.json` unless `--no-save` is set.
 - Session files contain: agent reports, research pool, synthesis, quality metrics
 - Session files do NOT contain: raw web page content, full artifact text (only references)
 - Use `--redact` to strip URLs, author names, and potential PII from saved sessions
-- Resume with `/conductor --resume SESSION_ID`
+- Resume with `/quorum --resume SESSION_ID`

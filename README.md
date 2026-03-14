@@ -1,28 +1,28 @@
-# Conductor
+# Quorum
 
 **Orchestrate a swarm of AI experts on any question. One command, multiple minds, stress-tested answers.**
 
-Type one command. Conductor spins up a team of specialists — researchers, analysts, skeptics, domain experts — makes them work the problem from every angle, debate each other, validate their claims, and deliver a synthesized verdict you can actually act on.
+Type one command. Quorum spins up a team of specialists — researchers, analysts, skeptics, domain experts — makes them work the problem from every angle, debate each other, validate their claims, and deliver a synthesized verdict you can actually act on.
 
 Like having a room full of smart people argue about your question before anyone gives you the answer.
 
 ```
-/conductor "your question here"
+/quorum "your question here"
 ```
 
 Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
-## Why Conductor?
+## Why Quorum?
 
 When you ask AI a question, you get one perspective. It sounds confident. It might be completely wrong. And you have no way to know.
 
-Conductor gives you what a single AI agent never can: **a second opinion, a third opinion, a devil's advocate, and a fact-checker — all at once.**
+Quorum gives you what a single AI agent never can: **a second opinion, a third opinion, a devil's advocate, and a fact-checker — all at once.**
 
 Here's what happens when you run it:
 
-1. **A team assembles.** Conductor picks the right experts for your question — a strategist, a skeptic, a researcher, a domain specialist, someone from a completely different field
+1. **A team assembles.** Quorum picks the right experts for your question — a strategist, a skeptic, a researcher, a domain specialist, someone from a completely different field
 2. **They work independently.** No groupthink. Each expert tackles the question from their unique angle without seeing anyone else's answer
 3. **They challenge each other.** The skeptic pokes holes. The researcher checks sources. Debate pairs argue the real disagreements
 4. **A supervisor synthesizes.** Not a vote count — an authored judgment that weighs reasoning quality, surfaces buried insights, and tells you what actually matters
@@ -34,19 +34,19 @@ Here's what happens when you run it:
 
 ```bash
 # Install
-claude install qinnovates/conductor
+claude install qinnovates/quorum
 
 # Ask any question
-/conductor "Should we use PostgreSQL or DynamoDB for our new service?"
+/quorum "Should we use PostgreSQL or DynamoDB for our new service?"
 
 # Review a document
-/conductor "Review this proposal" --artifact proposal.md
+/quorum "Review this proposal" --artifact proposal.md
 
 # Deep Socratic exploration
-/conductor "Should we open-source our core product?" --rigor dialectic
+/quorum "Should we open-source our core product?" --rigor dialectic
 
 # See the plan before running
-/conductor "your question" --dry-run
+/quorum "your question" --dry-run
 ```
 
 ## Features
@@ -85,7 +85,7 @@ Instead of 5 agents giving parallel opinions, two agents enter a philosophical d
   - **Spark** — the dialogue surfaces a question nobody started with. The best possible outcome
 
 ```
-/conductor "Should we open-source our core product?" --rigor dialectic
+/quorum "Should we open-source our core product?" --rigor dialectic
 ```
 
 ### Privacy Controls
@@ -97,7 +97,7 @@ Instead of 5 agents giving parallel opinions, two agents enter a philosophical d
 | `--redact` | Strip URLs, names, PII from saved sessions |
 | `--no-cross-ai` | Skip independent validation |
 
-**Maximum privacy:** `/conductor "query" --no-web --no-cross-ai --no-save`
+**Maximum privacy:** `/quorum "query" --no-web --no-cross-ai --no-save`
 
 ### All Options
 
@@ -117,7 +117,7 @@ Instead of 5 agents giving parallel opinions, two agents enter a philosophical d
 
 ## How It Works
 
-Conductor runs a multi-phase pipeline. You don't need to understand this to use it — just type `/conductor "question"` and go. But if you want the details:
+Quorum runs a multi-phase pipeline. You don't need to understand this to use it — just type `/quorum "question"` and go. But if you want the details:
 
 **[Full architecture documentation →](docs/ARCHITECTURE.md)**
 
@@ -134,39 +134,39 @@ Conductor runs a multi-phase pipeline. You don't need to understand this to use 
 
 **Strategy decision:**
 ```
-/conductor "Should we raise prices 20% or add a premium tier?"
+/quorum "Should we raise prices 20% or add a premium tier?"
 ```
 
 **Technical architecture:**
 ```
-/conductor "Evaluate microservices vs monolith for our 50-person engineering team" --full
+/quorum "Evaluate microservices vs monolith for our 50-person engineering team" --full
 ```
 
 **Research question:**
 ```
-/conductor "What are the most promising approaches to Alzheimer's early detection?" --mode research
+/quorum "What are the most promising approaches to Alzheimer's early detection?" --mode research
 ```
 
 **Document review:**
 ```
-/conductor "Review this contract for risks" --artifact contract.pdf --rigor high
+/quorum "Review this contract for risks" --artifact contract.pdf --rigor high
 ```
 
 **Life decision:**
 ```
-/conductor "Should I leave my job to start a company?" --rigor dialectic
+/quorum "Should I leave my job to start a company?" --rigor dialectic
 ```
 
 **Quick take:**
 ```
-/conductor "Best Python web framework for a small API?" --lite
+/quorum "Best Python web framework for a small API?" --lite
 ```
 
 ## Output Format
 
 Every report includes:
 - **Executive Summary** — 3-5 sentences, degree of consensus, key finding
-- **Supervisor's Assessment** — The conductor's own judgment (most valuable section)
+- **Supervisor's Assessment** — The quorum's own judgment (most valuable section)
 - **Confidence & Verification** — What's backed by evidence vs. supervisor judgment
 - **Disagreement Register** — Unresolved disputes with both positions preserved
 - **Priority Actions** — Ranked by impact, not by how many agents mentioned them

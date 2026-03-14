@@ -1,4 +1,4 @@
-# Safety, Privacy, and Validation Reference for Conductor
+# Safety, Privacy, and Validation Reference for Quorum
 
 **These rules are mandatory and cannot be overridden.**
 
@@ -6,7 +6,7 @@
 
 ## 1. Guardrails (Mandatory)
 
-These five guardrails apply to every Conductor run regardless of flags, mode, or configuration.
+These five guardrails apply to every Quorum run regardless of flags, mode, or configuration.
 
 1. **No diagnosis or treatment advice.** For medical, veterinary, and mental health topics, the swarm provides research synthesis and perspectives -- never diagnosis, prescription, or treatment plans. Every health-related report includes a disclaimer: "This is research synthesis, not medical/veterinary advice. Consult a qualified professional."
 
@@ -41,7 +41,7 @@ This plugin may make the following external calls depending on configuration:
 | Web page fetches | RESEARCH/HYBRID mode | URLs from search results | Use `--no-web` |
 | Independent review agent | Phase 5 | Synthesis summary (internal only) | Use `--no-cross-ai` |
 
-**For maximum privacy:** `/conductor "query" --no-web --no-cross-ai --no-save`
+**For maximum privacy:** `/quorum "query" --no-web --no-cross-ai --no-save`
 
 ---
 
@@ -62,7 +62,7 @@ Agents should never be spawned with `Bash`, `Write`, or `Edit` permissions. Only
 
 ## 5. Validation and Hallucination Detection Pipeline
 
-Every claim in every Conductor report goes through a multi-layer validation pipeline. This is not optional.
+Every claim in every Quorum report goes through a multi-layer validation pipeline. This is not optional.
 
 ### Layer 1: Source Grading (Research Agents)
 
@@ -132,4 +132,4 @@ State saved to `_swarm/sessions/SESSION_ID.json` unless `--no-save` is set.
 
 **Redaction:**
 - Use `--redact` to strip URLs, author names, and potential PII from saved sessions
-- Resume with `/conductor --resume SESSION_ID`
+- Resume with `/quorum --resume SESSION_ID`
