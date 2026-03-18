@@ -197,15 +197,18 @@ The supervisor scores the query on five dimensions:
 | **Scope** | Can this be answered in one swarm, or is it actually 3 questions? | "How do we build, deploy, and market our product?" |
 | **Constraints** | Are there enough boundaries for agents to optimize against? | "What's the best database?" (no constraints) |
 | **Actionability** | Will the answer tell the user what to DO? | "Tell me about encryption" (no decision frame) |
-| **Falsifiability** | Could an agent argue the opposite? If not, it's not a real question. | "Is security important?" (unfalsifiable) |
+| **Contestability** | Could reasonable, informed people disagree? Captures both empirical falsifiability and normative disagreement. | "Is security important?" (uncontestable) vs "Should we prioritize autonomy over safety?" (contestable) |
+| **Exploration signal** | Is the user explicitly asking to challenge their framing? | "What am I missing?", "What if we're wrong?", "Surprise me" |
 
-**Scoring:** Each dimension gets 0 (missing), 1 (partial), or 2 (clear). Total range: 0-10.
+**Scoring:** Each dimension gets 0 (missing), 1 (partial), or 2 (clear). Total range: 0-12.
 
 | Score | Action |
 |-------|--------|
-| 8-10 | Proceed normally. Query is sharp enough. |
-| 5-7 | Supervisor silently refines (default behavior). Shows refined question in report header. |
-| 0-4 | **Auto-ponder triggers.** Supervisor pauses and asks 2-3 questions before proceeding, same as `--ponder`. Tells the user: "Your question is broad enough that the swarm would scatter. Let me ask a few things first." |
+| 9-12 | Proceed normally. Query is sharp enough. |
+| 5-8 | Supervisor silently refines (default behavior). Shows refined question in report header. |
+| 0-4 | **Auto-ponder triggers.** Supervisor pauses and asks clarifying questions. Number of questions adapts to score: 0-2 → up to 5 questions, 3-4 → up to 3 questions. |
+
+**Exploration override:** When the Exploration signal dimension scores 2, route to EXPLORE mode regardless of other scores. The user has explicitly asked for divergence — narrowing would be hostile to their intent.
 
 This means `--ponder` is the explicit opt-in, but vague queries get ponder automatically. The Socratic Gate is Socrates questioning the *user*, not the agents. Same principle: expose the unstated assumption before the expensive work begins.
 
@@ -294,11 +297,27 @@ Profiles tell the supervisor what domains the project *usually* operates in. The
 
 3. **The classification gate scores the question, not the project.** A question about "should we monetize Six Dots?" in an accessibility app project scores high on business/strategy — a domain the profile doesn't list. The gate must route based on the *question's* domains, not the *project's* domains. The profile provides defaults for questions that fit the project's usual domains. It does not suppress domains for questions that don't.
 
-4. **Every 5th run, the supervisor must deliberately break the profile.** On runs 5, 10, 15, etc., the supervisor adds one persona from a domain the project has *never* used. This is not a bug — it is a scheduled injection of lateral thinking. The outsider may produce nothing useful (and gets pruned in Phase 2 if so), but when they do produce an insight, it's the kind the profile would have suppressed.
+4. **Inject an outsider when the system detects unexamined confidence, not on a schedule.** If the last 3+ runs in this project showed high consensus with low challenge (Plato found few UNSUPPORTED claims, Devil's Advocate counter-arguments were rated WEAK), the supervisor injects a domain outsider from an unrelated field. The trigger is the *intellectual condition* — unexamined confidence — not an arithmetic counter. Comfortable consensus is the disease. The outsider is the treatment.
 
 5. **"I don't know what I don't know" is a valid query state.** When the user's question is genuinely exploratory ("What am I missing?", "What haven't I thought about?"), the supervisor must treat the profile as actively harmful — it represents the user's existing mental model, which is exactly what needs to be challenged. Exploratory queries should *invert* the profile: spawn agents from domains the profile doesn't list.
 
 **The profile accelerates the common case. The anti-boxing rules protect the uncommon case. Both are load-bearing.**
+
+### Structural Protections (not aspirational — enforced)
+
+The anti-boxing rules above are *instructions to the supervisor*. The protections below are *structural constraints on the architecture*. When aspiration conflicts with structure, structure wins — so these protections must be structural.
+
+**1. Adversarial Immunity.** Adversarial agents (Devil's Advocate, Naive User, Domain Outsider, Provocateur) and any agent holding a minority position (< 25% agreement with emerging consensus) are **immune to pruning and early termination.** They survive to Phase 3 cross-review regardless of Phase 2 signal scoring. Their reports are never relegated to appendix-only. The cost of carrying 2-3 extra agents through one extra phase is trivial compared to the cost of systematically pruning novel perspectives.
+
+**2. Adversarial Evidence Access.** Adversarial agents receive `Read, Glob, Grep` access (they can search the codebase and Research Pool for counter-evidence). They do not get `WebSearch/WebFetch` (maintaining independence from the same sources the majority used). If the Devil's Advocate cannot find evidence for counter-arguments, their challenge is structurally weaker than the majority — that is not a fair contest. Alternatively, the supervisor may assign a "red team researcher" whose search partition is: "find evidence against the emerging consensus."
+
+**3. Socratic Follow-ups.** Socrates asks ONE initial question per team, then up to 2 follow-up questions targeting contradictions in the team's *answer*. The real Socratic method is a chain of questions, not a single shot. One question embarrasses a weak argument. A chain of questions dismantles a strong one. If a team cannot resolve the contradictions Socrates surfaces across 3 questions, that irresolution is elevated to the final report as a finding of genuine uncertainty — an **aporia** — not a failure.
+
+**4. Refutation Resistance replaces Confidence Scores.** Output reports use "refutation resistance" instead of "confidence." Instead of "how confident are we?" the framing is "how hard did we try to break this, and did it survive?" Confidence claims knowledge. Refutation resistance claims only that the claim survived specific attacks. This is Popperian falsificationism applied to output: a claim is strong not because agents believe it, but because adversarial agents failed to break it.
+
+**5. The Socratic Remainder.** Every report ends with a section where the supervisor articulates the premise the swarm's answer assumes but did not examine. Every answer rests on assumptions that were not interrogated. Making those premises visible is the most Socratic thing the system can do. Example: "This report assumes 'security' means 'prevention of unauthorized access.' If security means 'preservation of cognitive autonomy,' the recommendations change. The swarm did not examine which definition is appropriate."
+
+**6. Inverted Early Termination.** When all agents converge with HIGH confidence, scrutiny *increases*, not decreases. Unanimous agreement triggers mandatory Devil's Advocate challenge (not skippable). Early termination only applies to verifiable factual questions ("what version of Python does this project use?"), never to judgment calls. Comfortable consensus is the highest-risk scenario for unchallenged assumptions.
 
 ### Task Classification Gate
 
