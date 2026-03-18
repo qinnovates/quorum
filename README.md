@@ -139,23 +139,26 @@ Every multi-agent tool in the Claude Code ecosystem does the same thing: splits 
 
 Quorum is the only plugin that asks: *"How do we know this answer is actually right?"*
 
-### The Socratic Principle: Challenge Without a Box
+### Anti-Boxing
 
-Quorum walks a razor's edge. On one side: hallucination — agents confidently generating plausible nonsense. On the other: an echo chamber (no pun intended) — agents constrained so tightly by profiles and classification gates that they never think outside the project's existing mental model.
+When you give an AI a project profile and a classification gate, it starts only pulling from familiar domains, only spawning agents it already knows, only asking questions it can answer. The profile IS the box. The classification gate IS the box. Every efficiency optimization that prunes "low-signal" agents is killing exactly the perspectives that would break the box.
 
-Both failure modes produce the same result: the user gets back what they already believe, packaged in confidence they didn't earn.
+What I call **anti-boxing** is Quorum's structural guarantee that the system keeps reaching outside its own comfort zone. It is not an established term in AI/ML literature. The concepts it draws from have other names — lateral thinking (de Bono), structured dissent (Janis groupthink prevention), adversarial robustness, cognitive diversity in teams — but anti-boxing as a named architectural pattern for multi-agent systems is original to Quorum.
 
-This is the direct practice of Socrates. Socrates did not teach by giving answers. He taught by questioning assumptions — including his own. Quorum's architecture embodies this: every swarm includes agents whose job is to challenge, and the system deliberately reaches outside its own comfort zone to find perspectives the user didn't ask for.
+Quorum walks a razor's edge. On one side: hallucination — agents confidently generating plausible nonsense. On the other: an echo chamber (no pun intended) — agents constrained so tightly that they never think outside the project's existing mental model. Both failure modes produce the same result: the user gets back what they already believe, packaged in confidence they didn't earn.
 
-Project profiles accelerate the common case. The classification gate right-sizes the swarm. But if those systems become too rigid — if the AI only invokes resources from its own profile, only spawns agents from familiar domains, only asks questions it already knows the answer to — then Quorum becomes a validation machine for the user's existing beliefs, not a reasoning amplifier.
+This is the direct practice of Socrates. He did not teach by giving answers. He taught by questioning assumptions — including his own. Quorum embodies this: every swarm includes agents whose job is to challenge, and the system deliberately reaches outside its own comfort zone to find perspectives the user didn't ask for.
 
-That is why:
-- **The Domain Outsider is never drawn from the project's default domains.** Outsiders are outsiders. If they come from the same world, they see the same things.
-- **Every 5th run deliberately breaks the profile** with a lateral thinker from an unrelated field. Most of the time this produces noise. Sometimes it produces the insight that changes everything.
-- **Exploratory queries invert the profile entirely.** When the user asks "What am I missing?" the profile represents exactly the box they need to escape. The swarm spawns from domains the profile doesn't list.
-- **The classification gate scores the question, not the project.** A business question in a research repo gets business agents, not more researchers.
+**The 6 anti-boxing rules:**
 
-The goal is not to prevent hallucination by locking the system down. The goal is to prevent hallucination by making it visible — while keeping the creative and lateral thinking channels wide open. Constraint kills creativity. Transparency kills hallucination. Quorum chooses transparency.
+1. **Domain Outsider never from the profile's default domains.** If the profile says "accessibility, engineering, design," the outsider comes from somewhere else. The outsider's value comes from NOT being in the profile.
+2. **Classification gate scores the question, not the project.** A business question in a research repo gets business agents, not more researchers.
+3. **Condition-based outsider injection.** When the last 3+ runs showed high consensus with low challenge, inject a lateral thinker. The trigger is unexamined confidence, not a counter.
+4. **Exploratory queries invert the profile.** When the user asks "What am I missing?" the profile represents exactly the box they need to escape. The swarm spawns from domains the profile doesn't list.
+5. **Adversarial agents are immune to pruning.** The Devil's Advocate and Provocateur can never be killed by efficiency rules.
+6. **Inverted early termination.** When everyone agrees, scrutiny goes UP, not down. Unanimous consensus is the highest-risk scenario for blind spots.
+
+Constraint kills creativity. Transparency kills hallucination. Quorum chooses transparency.
 
 **What exists today and why it's not enough:**
 

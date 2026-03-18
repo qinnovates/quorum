@@ -221,7 +221,24 @@ Tool restrictions are prompt-enforced, not runtime-enforced (soft constraint, no
 
 **The rule: If it can't be sourced, it gets flagged. If agents disagree, both sides are shown. You decide — not the AI.**
 
-## Structural Protections
+## Anti-Boxing
+
+When you give an AI a project profile and a classification gate, it starts only pulling from familiar domains, only spawning agents it already knows, only asking questions it can answer. It becomes a confirmation machine — validating what the user already believes instead of challenging it.
+
+The profile IS the box. The classification gate IS the box. Every efficiency optimization that prunes "low-signal" agents is killing exactly the perspectives that would break the box.
+
+What I call **anti-boxing** is Quorum's structural guarantee that the system keeps reaching outside its own comfort zone. The concepts draw from lateral thinking (de Bono), structured dissent (Janis groupthink prevention), adversarial robustness, and cognitive diversity research — but anti-boxing as a named architectural pattern for multi-agent systems is original to Quorum.
+
+### Anti-Boxing Rules
+
+1. **Domain Outsider never from the profile's default domains.** If the profile says "accessibility, engineering, design," the outsider comes from somewhere else — security, economics, neuroscience. The outsider's value comes from NOT being in the profile.
+2. **Classification gate scores the question, not the project.** A business question in a research repo gets business agents. The project doesn't dictate what the question needs.
+3. **Condition-based outsider injection.** When the last 3+ runs showed high consensus with low challenge (comfortable agreement), inject a lateral thinker. The trigger is unexamined confidence, not a counter.
+4. **Exploratory queries invert the profile.** When you ask "What am I missing?" the profile represents exactly the box you need to escape. The swarm spawns from domains the profile doesn't list.
+5. **Adversarial agents are immune to pruning.** The Devil's Advocate and Provocateur can never be killed by efficiency rules. Their perspectives survive to cross-review regardless of signal score.
+6. **Inverted early termination.** When everyone agrees, scrutiny goes UP, not down. Unanimous consensus is the highest-risk scenario for blind spots.
+
+### Structural Protections
 
 Enforced constraints, not aspirational instructions:
 
@@ -229,8 +246,6 @@ Enforced constraints, not aspirational instructions:
 - **Socratic Follow-ups** — 2-3 questions per team, not just 1. Aporia (unresolvable uncertainty) is a valid finding
 - **Refutation Resistance** — output uses "survived attack" framing, not confidence scores
 - **Socratic Remainder** — every report states the unexamined premise the answer rests on
-- **Inverted Termination** — unanimous agreement increases scrutiny, not decreases it
-- **Domain Outsider never from profile** — outsiders must be outsiders
 - **Preserve-if-unique** — uniqueness overrides signal strength in triage
 
 ## 5-Tier Architecture
