@@ -280,6 +280,26 @@ Generated automatically on first run. Persists across runs so Quorum stops re-di
 - **Drift detection:** If the query hits a domain not in the profile, it's added automatically.
 - **Maintenance:** `--profile show` to inspect, `--profile update` to rescan, `--profile reset` to regenerate.
 
+### The Profile Is a Floor, Not a Ceiling
+
+Profiles tell the supervisor what domains the project *usually* operates in. They must never constrain what domains the supervisor *can* pull in. This is a critical architectural principle.
+
+**The Domain Outsider is mandatory precisely because profiles create blind spots.** If Six Dots is profiled as "accessibility + engineering + design," the supervisor might never ask a security researcher about haptic data leakage, or a cognitive scientist about sensory overload thresholds, or a business strategist about market positioning. But those perspectives could be exactly what the question needs.
+
+**Anti-boxing rules (mandatory, cannot be overridden by profiles):**
+
+1. **The supervisor must always ask: "What domain is this question touching that this project has never considered?"** This is a mandatory internal check before agent assignment. If the answer is non-empty, at least one agent must come from that domain — regardless of what the profile says.
+
+2. **The Domain Outsider agent is never drawn from the profile's default domains.** If the profile says "accessibility, engineering, design," the Domain Outsider must be from somewhere else — security, business, neuroscience, law, whatever the supervisor judges most likely to see what insiders miss. The outsider's value comes from *not* being in the profile.
+
+3. **The classification gate scores the question, not the project.** A question about "should we monetize Six Dots?" in an accessibility app project scores high on business/strategy — a domain the profile doesn't list. The gate must route based on the *question's* domains, not the *project's* domains. The profile provides defaults for questions that fit the project's usual domains. It does not suppress domains for questions that don't.
+
+4. **Every 5th run, the supervisor must deliberately break the profile.** On runs 5, 10, 15, etc., the supervisor adds one persona from a domain the project has *never* used. This is not a bug — it is a scheduled injection of lateral thinking. The outsider may produce nothing useful (and gets pruned in Phase 2 if so), but when they do produce an insight, it's the kind the profile would have suppressed.
+
+5. **"I don't know what I don't know" is a valid query state.** When the user's question is genuinely exploratory ("What am I missing?", "What haven't I thought about?"), the supervisor must treat the profile as actively harmful — it represents the user's existing mental model, which is exactly what needs to be challenged. Exploratory queries should *invert* the profile: spawn agents from domains the profile doesn't list.
+
+**The profile accelerates the common case. The anti-boxing rules protect the uncommon case. Both are load-bearing.**
+
 ### Task Classification Gate
 
 The supervisor scores every query on 4 dimensions (0-3 each):
