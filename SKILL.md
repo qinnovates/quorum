@@ -381,11 +381,74 @@ Output format matches task type. No more one-size-fits-all reports.
 | **DIALECTIC** | Insight chain | What emerged (synthesis/bedrock/spark) | Full dialogue transcript, witness reactions |
 | **DECISION** | Recommendation | Recommendation + why | Tradeoff table, dissenting view, conditions that would change it |
 | **ORG** | Executive briefing | Supervisor's ruling | Team positions, clash table, Socrates questions, Plato audit |
+| **EXPLORE** | Reframe map | Which reframing produced the most insight | Multiple alternative framings, assumption inventory, the better question |
 
-The supervisor selects the template during Phase 0 based on task classification. `--format audit|research|dialectic|decision|org` to override.
+The supervisor selects the template during Phase 0 based on task classification. `--format audit|research|dialectic|decision|org|explore` to override.
 
 **Always present:** Config header, lead section, blind spots, appendix (agent reports).
 **Removed from all templates:** Generic "Disagreement Register" and "Consensus Matrix" — replaced by task-specific sections (conflicts in literature, dissenting view, clash table).
+
+### Divergence Engine (creative safeguards)
+
+Quorum is a strong convergence engine. Structured debate, evidence auditing, cross-validation — these get you closer to a correct answer when the question is well-defined. But convergence is only half of creative thinking. The other half — divergence, exploration, reframing, serendipity — needs its own structural support.
+
+**The Provocateur archetype.** Alongside the 7 existing archetype categories (Technical, Adversarial, Domain, Creative, Regulatory, User, Business), add an 8th: **Provocateur**. The Provocateur does not analyze the question as stated. Their job is to propose the most interesting alternative framing:
+
+```
+You are a Provocateur. Your job is NOT to answer the question.
+Your job is to find a better question.
+
+What assumption is everyone making that might be wrong?
+What adjacent problem would be more valuable to solve?
+What would the answer look like if the question itself is the problem?
+
+Produce:
+## The Reframe (one sentence: what if the real question is...)
+## Why This Reframe Matters (2-3 sentences)
+## What Changes If This Reframe Is Right (implications)
+```
+
+The Provocateur is exempt from Plato's evidence audit (reframings are not empirical claims) and exempt from LOW-signal pruning. They appear in swarms of 6+ agents. Their contribution is assessed on uniqueness, not evidence quality.
+
+**Preserve-if-unique triage rule.** During Phase 2 triage, before pruning any agent as LOW-signal, the supervisor checks: "Does this agent's contribution introduce a framework, analogy, or framing that no other agent used?" If yes, preserve it regardless of signal score. Uniqueness overrides signal strength. A wild idea that no one else had is more valuable than a conventional idea everyone agrees on.
+
+**"Unexpected Observations" slot.** Every agent template includes an optional section after Blind Spots:
+
+```
+## Unexpected Observations (optional)
+Anything you noticed outside your assigned scope that might be relevant.
+Tangents welcome. This section is never pruned.
+```
+
+This gives agents structural permission to report serendipitous findings.
+
+**Research partition overlap.** Instead of strictly non-overlapping search partitions, allow a 20% overlap zone. Agent R1 searches PubMed + adjacent IEEE papers cited by PubMed results. Agent R2 searches IEEE + PubMed papers cited by IEEE results. Cross-domain connections live in the overlap.
+
+**Creative disruption check (replaces early termination).** When all agents converge with HIGH confidence, instead of skipping to synthesis, the supervisor asks: "What would need to be true for this consensus to be wrong?" If the answer is non-trivial, spawn one adversarial agent to explore it. Only terminate early if the consensus is genuinely trivial.
+
+### EXPLORE Mode (for meta-questions)
+
+When the Socratic Gate detects a meta-question, reframing request, or exploratory query ("What am I missing?", "What if we're wrong?", "What haven't I thought about?"), auto-route to EXPLORE mode.
+
+**How it differs from other modes:**
+
+| Property | Standard Modes | EXPLORE Mode |
+|----------|---------------|--------------|
+| Agent assignment | Each agent gets a stance on the same question | Each agent gets a *different reframing* of the question |
+| Goal | Find the best answer | Find the best question |
+| Triage | Prune low-signal agents | Preserve all unique framings |
+| Early termination | On consensus | Never — convergence is the enemy |
+| Supervisor synthesis | "The answer is X" | "The most productive reframing is X because Y" |
+| Default size | Score-based (often small) | 6-8 minimum |
+| Default rigor | Score-based (often low) | Medium minimum |
+
+**Socratic Gate modification for EXPLORE.** Add a 6th scoring dimension:
+
+| Dimension | 0 | 1 | 2 |
+|-----------|---|---|---|
+| **Exploration signal** | No meta-question detected | Implicit ("what about...?") | Explicit ("what am I missing?", "what if we're wrong?") |
+
+When this dimension scores 2, override the total score and route to EXPLORE mode regardless of how the other dimensions score. The user has explicitly asked for divergence. The system delivers it.
 
 ## Invocation
 
