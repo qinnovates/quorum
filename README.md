@@ -255,6 +255,7 @@ Works on any research — not just Quorum output. Feed it a paper draft, competi
 
 ## Documentation
 
+- **[Usage Guide](docs/GUIDE.md)** — When to use flat swarms vs subteams vs dialectic vs validation. Decision matrix, real-world examples, cost guide
 - **[Architecture](docs/ARCHITECTURE.md)** — Full phase-by-phase technical specification
 - **[Prompt Templates](docs/PROMPTS.md)** — All agent templates with variable reference
 - **[Safety & Privacy](docs/SAFETY.md)** — Guardrails, privacy disclosure, tool permissions
