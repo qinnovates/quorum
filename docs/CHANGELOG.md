@@ -2,6 +2,61 @@
 
 All notable changes to Quorum are documented here.
 
+## [v5.1.0](https://github.com/qinnovates/quorum/releases/tag/v5.1.0) — 2026-03-22
+
+### Added — Outcome Predictor
+- **Outcome Ledger** — every session automatically logs testable claims with confidence levels, persona attribution, and timestamps to `_swarm/ledger.json`
+- **Calibrate mode** (`--calibrate`) — review past claims, mark outcomes (CORRECT/INCORRECT/PARTIALLY_CORRECT), compute calibration scores per confidence level, persona type, mode, and rigor
+- **Monitor mode** (`--monitor SESSION_ID`) — re-run a previous session's question with fresh data, compare position shifts, output Drift Report
+
+### Added — Structured Seed Data
+- **Seed Data Engine** (`--seed PATH`) — accepts JSON, CSV, and RSS/Atom feed URLs as structured input alongside the text prompt
+- Seed data partitioned across agents by the Partition Engine (index ranges, categories, or MECE territory mapping in swarm mode)
+- Agents cite seed data entries with `[Seed:ID]` format
+- Research agents receive seed data summary for search query generation
+- Size limits enforced: max 500 entries, 100KB per agent partition
+
+### Added — Visualization Export
+- **Viz export** (`--viz`) — outputs D3-compatible JSON + self-contained HTML viewer to `_swarm/viz/`
+- **HTML viewer features:** force-directed agent graph (archetype-colored nodes, interaction edges), opinion drift chart, timeline scrubber with Play animation, cluster/coalition convex hull overlays, click-to-inspect info panel
+- Fully offline viewer — all D3.js and CSS inlined, zero network requests
+- Swarm mode extends viz with: taxonomy tree, territory assignments, cascade chains, sentiment trajectory animation
+- Respects `--redact` flag for credential/PII stripping in viz output
+
+### Added — Temporal Simulation
+- **Temporal simulation** (`--simulate TIMEFRAME`) — divide a timeframe into steps, inject events per step, watch the swarm's predictions evolve over simulated time
+- **Event generation pipeline:** agent-generated events (each proposes 1-2 per step), supervisor-curated selection, mandatory wildcard events for anti-boxing
+- **Seed events:** `--seed events.json` provides pre-planned event timelines for scenario testing
+- **Temporal viz:** timeline scrubber shows time labels ("Month 3: EU DPA issues first fine") with event markers on the opinion drift chart
+
+### Architecture
+- Phase 7 and Phase S7 updated: claim extraction for Outcome Ledger + viz data collection as post-synthesis steps
+- New Seed Data Engine section in architecture (format parsing, even-split partition, enriched citation format)
+- New Temporal Simulation Mode section (event schema, per-step workflow, constraints)
+- New prompt template blocks: `{{SEED_DATA}}` conditional for Analysis and Research agents
+- Safety additions: seed data sanitization with explicit injection actions (Section 9), viz data privacy with CSP (Section 10)
+
+### Fixed (from 8-agent self-review)
+- **[C1] Viz HTML viewer** — switched from LLM-generated D3 to pre-built template. Supervisor injects JSON data only. Template stored at `_swarm/viz/viewer-template.html`
+- **[C2] Ledger format** — switched from JSON array to JSONL (JSON Lines). Atomic append, no read-modify-write race conditions
+- **[C3] Seed data injection defense** — added explicit action rules: strip + flag + report on detection. >20% bad entries aborts seed entirely
+- **[C4] Claim extraction** — added worked examples, max claims (5-7 standard, 15 swarm), `testable_by` field, falsifiability requirement
+- **[C5] Template sync** — seed data variables added to PROMPTS.md with format definitions
+- **[M6] PARTIALLY_CORRECT** — defined as 0.5 in calibration math. Report shows correct/partial/incorrect breakdown
+- **[M7] Monitor mode** — creates new claims with `supersedes` field, never modifies existing entries
+- **[O1] Seed partition** — simplified to even-split only, dropped category heuristic
+- **[O2] RSS dropped** — removed from `--seed`, use research agents for web feeds
+- **[O3] Calibration buckets** — primary view = confidence level only (3 buckets), secondary dimensions optional. Minimum raised to 20
+
+### Changed
+- Version bump 5.0.0 → 5.1.0
+- New flags: `--seed PATH`, `--seed-preview`, `--viz`, `--calibrate`, `--monitor ID`, `--simulate TIMEFRAME`
+
+### Inspiration
+Outcome Predictor inspired by MiroFish's swarm prediction concept — adapted to track ALL Quorum session types (reviews, audits, research, decisions), not just forecasts. Temporal simulation adds the time dimension that makes prediction engines useful. Visualization export brings MiroFish-style swarm observation to Quorum's epistemic architecture.
+
+---
+
 ## [v5.0.0](https://github.com/qinnovates/quorum/releases/tag/v5.0.0) — 2026-03-22
 
 ### Added — Swarm Mode

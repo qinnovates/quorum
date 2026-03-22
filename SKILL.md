@@ -1,9 +1,9 @@
 ---
 name: quorum
 description: "Quorum: orchestrate a swarm of AI experts on any question. Specialists debate, research, and validate — then a polymath supervisor delivers the verdict. One command, multiple minds, stress-tested answers."
-argument-hint: '"your question" [--ponder] [--rigor low|medium|high|dialectic] [--size N] [--full] [--lite] [--artifact PATH] [--mode research|review|hybrid] [--teams "a,b,c"] [--org] [--swarm] [--predict]'
+argument-hint: '"your question" [--ponder] [--rigor low|medium|high|dialectic] [--size N] [--full] [--lite] [--artifact PATH] [--seed PATH] [--mode research|review|hybrid] [--teams "a,b,c"] [--org] [--swarm] [--predict] [--viz] [--calibrate] [--monitor ID]'
 disable-model-invocation: true
-version: 5.0.0
+version: 5.1.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -176,6 +176,12 @@ Override rules: binary "X or Y?" → dialectic. Feasibility → dialectic first.
 | `--schedule STRATEGY` | `round-robin` | Activation schedule: `round-robin`, `reactive`, `priority`, `probabilistic` |
 | `--taxonomy show` | — | Show generated taxonomy without running |
 | `--interviews N` | 5 | Agents the supervisor interviews directly (swarm only) |
+| `--seed PATH` | — | Structured data input (JSON, CSV). Even-split partitioned across agents. |
+| `--seed-preview` | — | Show seed data partition assignment without running |
+| `--simulate TIMEFRAME` | — | Temporal simulation: divide timeframe into steps, inject events per step |
+| `--viz` | — | Export D3 visualization JSON + self-contained HTML viewer to `_swarm/viz/` |
+| `--calibrate` | — | Review past claims, fill in outcomes, compute calibration scores |
+| `--monitor ID` | — | Re-run a previous session's question with fresh data, compare position shifts |
 | `--dry-run` | — | Show config reasoning without running |
 | `--profile show` | — | Display project profile |
 | `--profile update` | — | Rescan and regenerate profile |
@@ -194,6 +200,24 @@ Override rules: binary "X or Y?" → dialectic. Feasibility → dialectic first.
 /quorum "Red team our auth system" --swarm --size 200                # 200 attack vectors
 /quorum "Will neural data be biometric by 2028?" --swarm --predict   # Prediction mode
 /quorum "EEG authentication landscape" --swarm --schedule reactive   # Reactive scheduling
+
+# Seed data (structured input)
+/quorum "Analyze these survey results" --seed data/survey.json       # JSON seed data
+/quorum "Review vendor responses" --seed vendors.csv --org           # CSV with org mode
+/quorum "Evaluate these proposals" --seed proposals.json --seed-preview  # Preview partition first
+
+# Outcome Predictor
+/quorum --calibrate                                                  # Review all pending claims
+/quorum --monitor swrm_20260322_topic                                # Re-run with fresh data, compare
+
+# Visualization
+/quorum "Should we migrate to Rust?" --full --viz                    # Standard + viz export
+/quorum "BCI market 2028" --swarm --predict --viz                    # Swarm prediction + animated viz
+
+# Temporal simulation (speed up time)
+/quorum "Impact of EU AI Act on BCI startups" --swarm --predict --simulate "6 months"  # Monthly steps
+/quorum "How does our roadmap survive?" --swarm --simulate "1 year" --seed events.json  # Pre-planned scenario
+/quorum "Competitor response to our launch" --full --predict --simulate "3 months" --viz  # With viz
 ```
 
 ## Safety & Privacy

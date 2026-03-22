@@ -59,6 +59,19 @@
   - [Swarm Mode Output Format](#swarm-mode-output-format)
   - [Swarm vs Standard: Decision Guide](#swarm-vs-standard-decision-guide)
   - [How This Differs from MiroFish](#how-this-differs-from-mirofish)
+- [Outcome Predictor](#outcome-predictor)
+  - [Outcome Ledger Schema](#outcome-ledger-schema)
+  - [Claim Extraction](#claim-extraction-post-synthesis)
+  - [Calibrate Mode](#calibrate-mode---calibrate)
+  - [Monitor Mode](#monitor-mode---monitor)
+- [Seed Data Engine](#seed-data-engine)
+  - [Supported Formats](#supported-formats)
+  - [Partition Strategy](#partition-strategy)
+  - [Seed Data Citations](#seed-data-citations)
+- [Visualization Export](#visualization-export)
+  - [Visualization JSON Schema](#visualization-json-schema)
+  - [HTML Viewer](#html-viewer)
+- [Temporal Simulation Mode](#temporal-simulation-mode---simulate)
 - [Practical Limits](#practical-limits)
 
 ---
@@ -272,6 +285,10 @@ The supervisor writes the final report. This is not aggregation -- it is **autho
 - Assign confidence tiers: "validated by external review" > "swarm consensus" > "supervisor judgment" > "disputed"
 - Flag what the user should investigate further versus what they can act on now
 - Present to user for decision
+
+**Outcome Predictor (post-synthesis):** After writing the final report, extract all key claims for the Outcome Ledger. For each claim with a verdict (VALIDATED/FLAGGED/BLOCKED) or a confidence rating (HIGH/MEDIUM/LOW), create a ledger entry. Include the originating persona's archetype category, the session mode, and rigor level. Append to `_swarm/ledger.json`. If `--no-save` is set, skip ledger logging. See [Outcome Predictor](#outcome-predictor) for full schema.
+
+**Viz Data Collection (if `--viz`):** Build the visualization data structure during synthesis. For each agent: initial confidence/position from Phase 1, revised from Phase 3, final position. For each cross-review pair: interaction type and 1-sentence summary. For clusters: which agents converged and on what. Write to `_swarm/viz/SESSION_ID.json` and generate the self-contained HTML viewer at `_swarm/viz/SESSION_ID.html`. See [Visualization Export](#visualization-export) for schema and template.
 
 ---
 
@@ -928,7 +945,7 @@ Phase S3: Pattern Extraction (Environment Server identifies clusters, polarizati
 Phase S4: Supervisor Synthesis (reads patterns + environment state, writes report)
 Phase S5: Structural Challenge (Socrates questions clusters, Plato audits evidence across territories)
 Phase S6: Independent Validation (unchanged — cross-AI gate)
-Phase S7: Final Report (unchanged — supervisor's verdict)
+Phase S7: Final Report (supervisor's verdict + outcome ledger + viz export)
 ```
 
 #### Phase S0: Taxonomy Generation
@@ -1174,6 +1191,463 @@ Quorum Swarm Mode takes MiroFish's scaling mechanism (environment-based coordina
 
 ---
 
+## Outcome Predictor
+
+The Outcome Predictor tracks Quorum's claims over time and measures whether they held up. It answers: "When Quorum says HIGH confidence, is it actually right 90% of the time? Or 50%?"
+
+This is not just for prediction mode — every Quorum session produces claims with confidence levels. Reviews, audits, research, decisions — all produce testable assertions.
+
+### Outcome Ledger Schema
+
+Stored at `_swarm/ledger.jsonl` (JSON Lines format — one claim per line, atomic append, no read-modify-write race conditions).
+
+Each line is a self-contained JSON object:
+
+```json
+{"id":"CLM-a1b2c3d4","session_id":"swrm_20260322_topic","timestamp":"2026-03-22T14:30:00Z","claim":"DuckDB-WASM outperforms sql.js for analytical queries on 10K+ rows","verdict":"VALIDATED","confidence":"HIGH","confidence_numeric":9,"persona_type":"Technical","persona_name":"Database Engineer","mode":"review","rigor":"medium","source_evidence_tier":"MODERATE","testable_by":"Benchmark both on 10K+ row dataset","supersedes":null,"outcome":null,"outcome_timestamp":null,"outcome_notes":null}
+```
+
+**Confidence numeric mapping:** HIGH=9, MEDIUM=6, LOW=3. Used by calibration math and viz.
+
+**Why JSONL:** JSON array requires read-entire-file → parse → push → serialize → write-entire-file. Two concurrent sessions finishing simultaneously = last-writer-wins, claims silently lost. JSONL is atomic append (`>>`) on POSIX — no read-modify-write.
+
+Calibration scores are computed on-the-fly by `--calibrate`, not stored in the ledger file
+```
+
+### Claim Extraction (Post-Synthesis)
+
+After the supervisor writes the final report (Phase 7 or Phase S7), extract all key claims:
+
+1. **Every verdict-tagged assertion:** Anything marked VALIDATED, FLAGGED, or BLOCKED
+2. **Every confidence-rated assertion:** Any claim paired with HIGH, MEDIUM, or LOW confidence
+3. **Key recommendations:** The top 3 priority actions (testable: did the action work?)
+4. **Prediction-specific claims:** In `--predict` mode, every forecasted outcome with its timeframe
+
+**Constraints:**
+- **Max claims per session:** 5-7 (standard mode), 10-15 (swarm mode)
+- **Each claim must be a single falsifiable proposition** — not a vague assessment
+- **Each claim must have a `testable_by` field** — when and how it can be verified
+
+For each claim, record:
+- The claim text (1-2 sentences, specific and testable)
+- The verdict and confidence from the synthesis
+- The `confidence_numeric` value (HIGH=9, MEDIUM=6, LOW=3)
+- The persona archetype that originated or most strongly advocated for it
+- The session's mode and rigor level
+- The evidence tier of the supporting sources
+- The `testable_by` description (how to verify this claim)
+
+**If `--no-save` is set, skip ledger logging entirely.**
+
+#### Worked Examples
+
+**Synthesis paragraph:**
+> "The panel validated that DuckDB-WASM outperforms sql.js for analytical queries on datasets exceeding 10K rows (HIGH confidence). However, sql.js has broader browser compatibility — the Security Architect flagged that DuckDB-WASM's WebAssembly dependency excludes Safari versions below 15.2 (MEDIUM confidence, disputed by Frontend Agent)."
+
+**Extracted claims:**
+
+```jsonl
+{"id":"CLM-a1b2c3d4","claim":"DuckDB-WASM outperforms sql.js for analytical queries on 10K+ row datasets","verdict":"VALIDATED","confidence":"HIGH","confidence_numeric":9,"persona_type":"Technical","testable_by":"Benchmark both on 10K+ row dataset with typical analytical queries"}
+{"id":"CLM-e5f6g7h8","claim":"DuckDB-WASM WebAssembly dependency excludes Safari versions below 15.2","verdict":"FLAGGED","confidence":"MEDIUM","confidence_numeric":6,"persona_type":"Technical","testable_by":"Test DuckDB-WASM in Safari 15.0 and 15.1"}
+```
+
+**NOT a valid claim:** "The team should consider database options carefully" — not falsifiable.
+**NOT a valid claim:** "DuckDB is better" — too vague, no conditions specified.
+
+### Calibrate Mode (`--calibrate`)
+
+Invoked via `/quorum --calibrate`. Workflow:
+
+1. Read `_swarm/ledger.json`
+2. Filter claims where `outcome` is `null`
+3. Group pending claims by session, show each with original context
+4. For each claim, prompt the user to mark:
+   - `CORRECT` — the claim held up
+   - `INCORRECT` — the claim was wrong
+   - `PARTIALLY_CORRECT` — directionally right but details were off
+   - `UNKNOWN` — can't determine yet
+   - `SKIP` — don't evaluate this one
+5. Update each claim entry with outcome + timestamp + optional notes
+6. Compute calibration scores:
+
+**Calibration computation:**
+
+PARTIALLY_CORRECT counts as 0.5 in all calculations.
+
+- **Primary view (always shown):** % correct by confidence level (3 buckets — reachable in weeks)
+  - HIGH: X% correct, Y% partial, Z% incorrect (target: ≥ 90% correct)
+  - MEDIUM: X% correct, Y% partial, Z% incorrect (target: 60-80%)
+  - LOW: X% correct, Y% partial, Z% incorrect (target: 30-50%)
+- **Secondary view (optional, on request):**
+  - Per persona type: grouped by archetype category
+  - Per mode: grouped by review/research/hybrid/explore/predict
+  - Per rigor: grouped by low/medium/high/dialectic
+
+**Minimum data thresholds:** Calibration scores require ≥ 20 resolved claims per bucket. Below that, display "insufficient data (N/20 minimum)." Primary view (3 buckets × 20 = 60 claims) is reachable after ~10-12 sessions.
+
+**Archival:** When `ledger.jsonl` exceeds 1000 lines, prompt the user to archive old entries to `_swarm/ledger-archive/YYYY.jsonl`.
+
+### Monitor Mode (`--monitor`)
+
+Invoked via `/quorum --monitor SESSION_ID`. Re-runs the same question from a previous session with fresh data, compares the new swarm's position to the previous one, and flags position shifts.
+
+1. Load the previous session's question, config, and key claims
+2. Run a new session with the same parameters
+3. Compare: which claims still hold? Which shifted? Which reversed?
+4. Output a **Drift Report** showing position changes with evidence for the shift
+5. Append NEW claim entries to the ledger with a `supersedes` field pointing to the original claim ID — original claims are never modified (preserves append-only guarantee)
+
+This enables continuous monitoring of evolving situations — re-run weekly/monthly and track how the swarm's collective position evolves.
+
+---
+
+## Seed Data Engine
+
+Quorum accepts structured data alongside the text prompt via `--seed PATH`. This lets agents analyze real data (survey results, news feeds, vendor responses, market signals) rather than working from the question alone.
+
+### Supported Formats
+
+| Format | Detection | Parsing |
+|--------|-----------|---------|
+| `.json` | File extension | If array: each element = one entry. If object: each top-level key = one entry. |
+| `.csv` | File extension | First row = headers. Each subsequent row = one entry. |
+
+**Not supported in v5.1:** RSS/Atom URLs. Use `--mode research` with research agents for web feeds — they already handle URL fetching with proper security controls.
+
+**Rejected formats:** Binary files, images, PDFs, executables. The supervisor must validate the file is valid JSON or CSV before parsing. If parsing fails, report the error and proceed without seed data.
+
+### Size Limits
+
+- **Maximum entries:** 500 (if seed data exceeds this, the supervisor samples representatively rather than truncating mid-entry)
+- **Maximum text per agent partition:** 100KB
+- **If limits are exceeded:** The supervisor creates a summary index of all entries and distributes full text only for the partition assigned to each agent
+
+### Partition Strategy
+
+**All modes (flat, org, swarm): even-split.**
+- Divide seed entries evenly across analysis agents. Agent 1 gets entries 1–N/K, Agent 2 gets N/K+1 to 2N/K, etc.
+- Each agent's prompt includes only their partition with metadata: "You have seed data entries {{START}}–{{END}} of {{TOTAL}} total."
+- In swarm mode, the even-split aligns with taxonomy order — the supervisor sorts entries by relevance to taxonomy branches before splitting, so adjacent entries land in related territories.
+
+**`--seed-preview` flag:** Show the partition assignment before running. Lets the user verify the split makes sense.
+
+**Research agents:**
+- Receive a summary of ALL seed data (max 200 words: entry count, format, date range if present, top-level categories, notable patterns) as context for designing search queries.
+- Are instructed NOT to analyze seed data directly — only to use it for search term generation. They output a "Seed-Informed Search Terms" section to channel this behavior.
+
+### Seed Data Citations
+
+Agents must cite specific entries when referencing seed data using enriched format:
+- `[Seed:23 "Acme Corp vendor response"]` — entry 23 with brief description
+- `[Seed:row-45 "Q3 revenue data"]` — CSV row 45 with context
+
+The description text (in quotes) helps cross-review agents and the supervisor verify citations without needing to see the original entry.
+
+**Partition format:** Regardless of input format, seed data is always presented to agents as a numbered list:
+```
+1. [ID:1] Acme Corp - Enterprise tier, $50k annual, 99.9% SLA...
+2. [ID:2] Beta Inc - Startup tier, $5k annual, 99% SLA...
+```
+
+This gives agents consistent IDs to cite regardless of whether the source was JSON or CSV.
+
+The supervisor's synthesis must trace every seed-data-derived claim back to its source entry. A shared **seed data index** (entry ID + one-line description) is included in cross-review context so reviewers can verify citations even though they have different partitions.
+
+---
+
+## Visualization Export
+
+When `--viz` is set, Quorum exports D3-compatible JSON and a self-contained HTML viewer after any session.
+
+### Output Files
+
+- `_swarm/viz/SESSION_ID.json` — D3-compatible visualization data
+- `_swarm/viz/SESSION_ID.html` — self-contained HTML viewer (all JS/CSS inlined, no network requests)
+
+### Visualization JSON Schema
+
+```json
+{
+  "session_id": "swrm_20260322_topic",
+  "topic": "...",
+  "timestamp": "2026-03-22T14:30:00Z",
+  "config": {
+    "agents": 8,
+    "rounds": 2,
+    "mode": "review",
+    "rigor": "high",
+    "swarm": false
+  },
+  "agents": [
+    {
+      "id": "A-001",
+      "name": "Security Architect",
+      "archetype": "Technical",
+      "territory": null,
+      "team": null,
+      "final_confidence": "HIGH",
+      "final_position": "mTLS with hardware-bound certs"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "phase": "independent-work",
+      "timestamp": "2026-03-22T14:31:00Z",
+      "agent_states": [
+        {
+          "agent_id": "A-001",
+          "confidence": 8,
+          "position_summary": "mTLS is sufficient"
+        }
+      ],
+      "interactions": []
+    },
+    {
+      "round": 1,
+      "phase": "cross-review",
+      "timestamp": "2026-03-22T14:35:00Z",
+      "agent_states": [
+        {
+          "agent_id": "A-001",
+          "confidence": 6,
+          "position_summary": "mTLS with fallback needed"
+        }
+      ],
+      "interactions": [
+        {
+          "from": "A-003",
+          "to": "A-001",
+          "type": "challenge",
+          "summary": "Network assumption questioned"
+        },
+        {
+          "from": "A-001",
+          "to": "A-003",
+          "type": "support",
+          "summary": "Accepted network edge case"
+        }
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "id": "C-1",
+      "label": "Hardware-first auth",
+      "agents": ["A-001", "A-004"],
+      "round_formed": 1,
+      "confidence": "HIGH"
+    }
+  ],
+  "coalitions": [],
+  "opinion_drift": [
+    {
+      "agent_id": "A-001",
+      "trajectory": [
+        { "round": 0, "confidence": 8, "position": "mTLS" },
+        { "round": 1, "confidence": 6, "position": "mTLS with fallback" }
+      ]
+    }
+  ],
+  "final_verdicts": {
+    "VALIDATED": ["claim1", "claim2"],
+    "FLAGGED": ["claim3"],
+    "BLOCKED": []
+  }
+}
+```
+
+**Swarm mode extends this with:**
+- `taxonomy` — the full MECE tree structure
+- `sentiment_trajectory` — from Environment Server state
+- `cascades` — finding IDs that triggered chain reactions, with edges
+- `handoffs` — cross-territory handoff edges
+- `territory_map` — territory → agent assignments
+
+### Viz Data Collection
+
+**Standard mode (Phase 4):** During synthesis, the supervisor builds the visualization data. For each agent: initial confidence/position from Phase 1, revised confidence/position from Phase 3, final position. For each cross-review pair: interaction type (agree/challenge/partial) and 1-sentence summary. For clusters: which agents converged and on what.
+
+**Swarm mode (Phase S4):** Extract from Environment Server state: all agent position trajectories, all POST/REACT/HANDOFF/SHIFT actions as interaction edges, opinion clusters and coalitions with formation round. The Environment Server already tracks this — the viz export is a projection of existing state.
+
+### HTML Viewer
+
+The viewer uses a **pre-built template** stored at `_swarm/viz/viewer-template.html`. The supervisor does NOT generate D3 code — it only serializes the viz JSON and injects it into the template via `const DATA = {{EMBEDDED_JSON}};`.
+
+**Why a template:** D3 v7 is ~280KB minified. Force simulation tuning, SVG coordinate systems, and state management across the scrubber are ~150 lines of non-trivial code. LLM-generated D3 will break on first use. The template is tested once, works forever.
+
+**Template location:** `_swarm/viz/viewer-template.html` (created on first `--viz` run by the supervisor writing the full template). Once created, subsequent runs reuse it and only inject new data.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Session: [topic]  |  Agents: N  |  Rounds: R  |  Mode │
+│  [How to read this visualization]                        │
+├──────────────────────────────────┬──────────────────────┤
+│                                  │                      │
+│   Force-Directed Agent Graph     │    Info Panel         │
+│   (nodes = agents, colored by    │    (click agent or    │
+│    archetype; edges = interactions│     edge for details) │
+│    challenge=red, support=green,  │                      │
+│    handoff=blue)                  │    Legend:            │
+│                                  │    🔵 Technical       │
+│                                  │    🔴 Adversarial     │
+│                                  │    🟢 Domain          │
+│                                  │    🟣 Creative        │
+│                                  │    🟠 Regulatory      │
+│                                  │    🔵 User (teal)     │
+│                                  │    🟡 Business        │
+├──────────────────────────────────┴──────────────────────┤
+│  Opinion Drift Chart                                     │
+│  (line chart: each agent's confidence across rounds,     │
+│   agents with biggest shifts highlighted)                │
+├─────────────────────────────────────────────────────────┤
+│  ◀ [Play] ▶  ═══════════●═══════════  Round 3 / 8       │
+│  Speed: [1x] [2x] [4x]                                  │
+│  Timeline: filters graph + drift to show state at round  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Viewer features:**
+1. **Force-directed agent graph** — D3 force simulation. Nodes = agents (colored by archetype: Technical=blue, Adversarial=red, Domain=green, Creative=purple, Regulatory=orange, User=teal, Business=gold). Node size = interaction count. Edges colored by type. Click node → info panel shows agent details.
+2. **Timeline scrubber** — Range slider (round 0 to N). Filters graph and drift chart to show state at that round. Play button auto-advances. **Speed controls: 1x (1 second per round), 2x, 4x.** Pause to inspect any round.
+3. **Opinion drift chart** — SVG line chart. Each agent = one line. Y-axis = confidence (0-10). X-axis = rounds. Agents whose confidence changed most are drawn with thicker strokes.
+4. **Cluster/coalition highlights** — When a cluster or coalition exists at the current round, its member nodes get a convex hull overlay on the graph. Hull color matches cluster ID.
+5. **Info panel** — Right sidebar with legend. Shows session metadata by default. On click: agent details (name, archetype, territory, position trajectory) or interaction details (from, to, type, summary).
+6. **"How to read this" header** — Collapsible explanation of what the viz shows, for first-time users.
+
+**Edge cases:** The template must handle: 0 interactions (show nodes only), 1 round (no scrubber), 2 agents (dialectic — show as opposing nodes), swarm mode (hundreds of nodes — cluster view, not individual).
+
+**Temporal simulation mode** extends the scrubber: instead of "Round 3" it shows "Month 3: after [event description]" — each step has real temporal meaning. See [Temporal Simulation](#temporal-simulation-mode---simulate).
+
+**Security:** The template uses `JSON.parse()` for data injection (not `eval()`), `textContent` for all dynamic text (not `innerHTML`), and includes a `<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'">` tag to prevent external resource loading.
+
+**Redaction:** If `--redact` is also set, apply the same redaction patterns to the viz JSON before embedding in HTML.
+
+---
+
+## Temporal Simulation Mode (`--simulate`)
+
+Standard Quorum rounds are debates — agents argue about what IS true. Temporal simulation adds a time dimension — agents argue about what WILL BE true as events unfold.
+
+### How It Works
+
+```bash
+/quorum "How will EU AI Act affect BCI startups?" --swarm --predict --simulate "6 months"
+```
+
+1. **The supervisor divides the timeframe into time steps.** "6 months" = 6 steps of 1 month each. "2 years" = 8 steps of 3 months. The supervisor picks granularity based on the question's temporal resolution.
+
+2. **Each simulation round = one time step.** Agents don't just debate — they receive **injected events** at each step that change the conditions.
+
+3. **Event generation (3 sources):**
+
+| Source | How | When |
+|--------|-----|------|
+| **Seed data** | `--seed events.json` provides a pre-defined event timeline | When the user has a scenario they want to test |
+| **Agent-generated** | Each agent proposes 1-2 plausible events for the next time step based on their territory expertise | Default — the swarm generates its own future |
+| **Supervisor-curated** | Supervisor selects the most plausible events from agent proposals, plus 1 wildcard event for anti-boxing | Always — the supervisor controls the narrative arc |
+
+4. **Per-step workflow:**
+
+```
+Step 1 (Month 1):
+  → Supervisor announces: "Month 1. Events: [EU publishes implementation guidance]"
+  → Active agents react within their territories
+  → Agents POST findings, REACT, SHIFT positions
+  → Agents propose events for Month 2
+
+Step 2 (Month 2):
+  → Supervisor selects events from proposals + adds wildcard
+  → Supervisor announces: "Month 2. Events: [First enforcement action filed, Major BCI startup raises $50M]"
+  → Agents react, some positions shift dramatically
+  → Pattern detection: cascade triggered by enforcement action
+
+Step 3 (Month 3):
+  → ...continues until timeframe exhausted
+```
+
+5. **Event schema:**
+
+```json
+{
+  "step": 3,
+  "time_label": "Month 3",
+  "events": [
+    {
+      "id": "E-003",
+      "description": "EU DPA issues first fine under AI Act Article 71",
+      "source": "agent-generated",
+      "proposed_by": "A-012",
+      "plausibility": "HIGH",
+      "territories_affected": ["regulatory/enforcement", "market-impact/funding"]
+    }
+  ],
+  "wildcard": {
+    "description": "US announces reciprocal AI regulation framework",
+    "source": "supervisor",
+    "rationale": "Anti-boxing — swarm was converging on EU-only analysis"
+  }
+}
+```
+
+### Temporal Viz
+
+The timeline scrubber becomes a **time scrubber**:
+- Instead of "Round 3" → "Month 3: EU DPA issues first fine"
+- Each step shows: the injected events, which agents shifted, which cascades fired
+- Play at 1x/2x/4x speed watches the predicted future unfold
+- Pause at any month to inspect the swarm's state
+
+The opinion drift chart gains a second dimension: event markers along the X-axis showing what caused position shifts.
+
+### Temporal Simulation JSON Extension
+
+The viz JSON gains:
+
+```json
+{
+  "temporal": {
+    "timeframe": "6 months",
+    "granularity": "monthly",
+    "steps": [
+      {
+        "step": 1,
+        "time_label": "Month 1",
+        "events": [...],
+        "wildcard": {...}
+      }
+    ]
+  }
+}
+```
+
+### Invocation
+
+```bash
+# Basic temporal simulation
+/quorum "Impact of EU AI Act on BCI startups" --swarm --predict --simulate "6 months"
+
+# With seed events (pre-planned scenario)
+/quorum "How does our roadmap survive these market shifts?" --swarm --predict --simulate "1 year" --seed planned-events.json
+
+# Short-term tactical
+/quorum "What happens if we ship this feature next week?" --predict --simulate "4 weeks"
+
+# You can use --simulate without --swarm (standard mode agents react to events)
+/quorum "How will our competitor respond to our launch?" --full --predict --simulate "3 months"
+```
+
+### Constraints
+
+- **Maximum time steps:** 20 (beyond that, event generation quality degrades)
+- **Minimum agents for temporal:** 8 (standard) or 20 (swarm) — temporal needs enough agents for diverse event proposals
+- **Event proposal limit:** 2 per agent per step (prevents event explosion)
+- **Wildcard is mandatory:** The supervisor must inject at least 1 wildcard event per 3 steps to prevent tunnel vision
+
+---
+
 ## Practical Limits
 
 ### Standard Mode
@@ -1191,3 +1665,11 @@ Quorum Swarm Mode takes MiroFish's scaling mechanism (environment-based coordina
 - Minimum viable swarm: 20 agents
 - Prediction mode (`--predict`) adds sentiment tracking overhead but produces forecasting-grade output
 - Taxonomy generation adds ~1-2 minutes upfront but prevents all downstream overlap
+
+### Temporal Simulation
+- Sweet spot: 8-12 time steps, 50-100 agents (swarm), 8 agents (standard)
+- Token budget: ~2-8M tokens (scales with steps × agents × activation rate)
+- Time: 15-45 minutes depending on step count and swarm size
+- Maximum time steps: 20 (event generation quality degrades beyond this)
+- Event proposal limit: 2 per agent per step
+- Wildcard mandatory every 3 steps

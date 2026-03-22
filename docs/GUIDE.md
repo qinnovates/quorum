@@ -549,3 +549,156 @@ Two agents debated control vs. community for 4 rounds. Hit bedrock on round 3: t
 /quorum "Audit our BCI plugin for security, clinical accuracy, and legal compliance" --org
 ```
 Supervisor auto-detected 3 teams: Security (red team focus), Clinical (accuracy of diagnostic mappings), Legal (data handling compliance). Socrates asked Security: "Your threat model assumes a local attacker — what about supply chain?" Plato flagged 4 clinical claims as UNSUPPORTED. Cross-team challenge: Clinical told Security their amplitude bounds were too restrictive for therapeutic use. Supervisor recommended tiered bounds. Took 10 minutes.
+
+---
+
+## Structured Seed Data (`--seed`)
+
+Feed structured data directly to the swarm instead of relying on the text prompt alone.
+
+### When to Use
+
+- **Seed data:** Structured input the swarm should analyze (survey results, market signals, vendor responses, news feeds)
+- **Artifact:** A document the swarm should review (code, strategy doc, paper draft)
+- **Both together:** Feed seed data for context + artifact for review: `/quorum "Review this proposal against market data" --artifact proposal.md --seed market.json`
+
+### Formats
+
+| Format | Example |
+|--------|---------|
+| JSON | `/quorum "Analyze trends" --seed data/signals.json` |
+| CSV | `/quorum "Review responses" --seed vendors.csv --org` |
+
+### How Partition Works
+
+The Seed Data Engine divides entries across agents so no agent sees the full dataset:
+
+- **By index range:** Agent 1 gets entries 1-25, Agent 2 gets 26-50, etc.
+- **By category:** If data has natural groups (JSON keys, CSV column values), agents get category-aligned slices
+- **In swarm mode:** Entries map into the MECE taxonomy — each territory gets only its relevant entries
+
+Agents cite seed data with `[Seed:23]` or `[Seed:vendor/acme]` format.
+
+---
+
+## Outcome Predictor (`--calibrate`, `--monitor`)
+
+Track whether Quorum's assessments hold up over time.
+
+### How It Works
+
+Every session automatically logs testable claims to `_swarm/ledger.json`:
+- Every VALIDATED / FLAGGED / BLOCKED assertion
+- Every HIGH / MEDIUM / LOW confidence claim
+- Every top-3 priority action
+
+### Calibrating
+
+```bash
+/quorum --calibrate                    # Review all pending claims
+/quorum --calibrate --session ID       # Review one session only
+```
+
+Quorum shows each pending claim and asks: CORRECT, INCORRECT, PARTIALLY_CORRECT, UNKNOWN, or SKIP. Then computes:
+
+- **Overall calibration** — when Quorum says HIGH, how often is it right?
+- **Per persona type** — are Technical agents more accurate than Adversarial?
+- **Per mode** — is review mode more reliable than research mode?
+- **Per rigor** — does high rigor actually produce better outcomes?
+
+Perfect calibration target: HIGH confidence should be correct 90%+ of the time.
+
+### Monitoring Position Drift
+
+```bash
+/quorum --monitor swrm_20260322_topic  # Re-run with fresh data
+```
+
+Re-runs a previous session's question, compares the new swarm's position to the old one, and outputs a **Drift Report**: which claims still hold, which shifted, which reversed — with evidence for each shift.
+
+Use weekly/monthly to track evolving situations.
+
+---
+
+## Visualization (`--viz`)
+
+Export an interactive visualization of any session.
+
+```bash
+/quorum "question" --full --viz           # Standard session + viz
+/quorum "question" --swarm --predict --viz # Swarm prediction + animated viz
+```
+
+### What You Get
+
+Two files in `_swarm/viz/`:
+- `SESSION_ID.json` — D3-compatible data (agent graph, interactions, opinion drift)
+- `SESSION_ID.html` — self-contained viewer, open in any browser
+
+### The Viewer
+
+- **Agent graph** — force-directed network. Nodes = agents (colored by archetype), edges = interactions. Click any node for details.
+- **Opinion drift chart** — line chart showing each agent's confidence across rounds. Biggest movers highlighted.
+- **Timeline scrubber** — slide through rounds. Hit Play to animate the simulation at 1-second intervals. Watch opinions form, shift, and crystallize.
+- **Cluster highlights** — convex hulls around agents that converged into opinion clusters.
+
+The viewer is fully offline — no CDN, no network requests, everything inlined. Open `_swarm/viz/SESSION_ID.html` and it works.
+
+Swarm mode viz adds: taxonomy tree, territory assignments, cross-territory handoff edges, cascade chain visualization, and sentiment trajectory animation.
+
+---
+
+## Temporal Simulation (`--simulate`)
+
+Speed up time. Instead of debating what's true now, simulate what happens as events unfold.
+
+### How It Works
+
+```bash
+/quorum "Impact of EU AI Act on BCI startups" --swarm --predict --simulate "6 months"
+```
+
+The supervisor divides "6 months" into 6 monthly steps. Each step:
+1. Events are injected (agent-generated + supervisor-curated + 1 wildcard)
+2. Agents react within their territories
+3. Positions shift based on new conditions
+4. Pattern detection tracks cascades and coalitions
+
+### Event Sources
+
+- **Agent-generated (default):** Each agent proposes 1-2 plausible events for the next step. The supervisor picks the most plausible.
+- **Seed data:** `--seed events.json` provides a pre-planned event timeline. Use when you want to test a specific scenario ("what if competitor launches first?").
+- **Wildcard:** The supervisor injects 1 unexpected event every 3 steps to prevent tunnel vision.
+
+### Examples
+
+```bash
+# "What happens over the next 6 months?"
+/quorum "EU AI Act impact on BCI" --swarm --predict --simulate "6 months"
+
+# "Test our roadmap against these planned events"
+/quorum "Roadmap survival check" --swarm --simulate "1 year" --seed planned-events.json
+
+# "Quick tactical: what happens next month?"
+/quorum "Competitor response to our launch" --full --predict --simulate "4 weeks"
+
+# With viz — watch the predicted future unfold
+/quorum "BCI market evolution" --swarm --predict --simulate "2 years" --viz
+```
+
+### The Viz Scrubber Becomes a Time Machine
+
+With `--viz`, the timeline scrubber shows actual time labels:
+- Instead of "Round 3" → "Month 3: EU DPA issues first fine"
+- Event markers on the opinion drift chart show what caused position shifts
+- Play at 1x/2x/4x to watch months fly by
+- Pause at any point to inspect the swarm's state at that moment
+
+### When to Use
+
+| Scenario | Simulate? | Why |
+|----------|-----------|-----|
+| "What's true right now?" | No | Standard review/research |
+| "What will happen over time?" | Yes | Temporal dynamics matter |
+| "How does our plan survive contact with reality?" | Yes + seed events | Test specific scenarios |
+| "What's the worst case?" | Yes + high wildcard rate | Stress test with unexpected events |
