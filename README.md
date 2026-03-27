@@ -48,6 +48,9 @@ claude install qinnovates/quorum
 # Review a document
 /quorum "Review this proposal for risks" --artifact proposal.md
 
+# Sequential review pipeline — auto-resolves mechanical, surfaces taste calls
+/quorum "Is this API spec production-ready?" --reviewers --artifact api-spec.md
+
 # Massive scale — swarm auto-engages at 20+
 /quorum "Impact of EU AI Act on BCI startups" --set 200
 
@@ -94,6 +97,7 @@ Quorum scales in five tiers. Each tier is a fundamentally different kind of reas
 |------|--------|-----------|-------------|
 | **Flat** (`--lite`, default) | 3-8 | Single panel, everyone debates everyone | Focused questions in 1-2 domains |
 | **Converse** (`--converse`) | 5-7 | Iterative adversarial convergence, multiple rounds | Battle-tested solutions, architecture decisions, build-vs-buy |
+| **Reviewers** (`--reviewers`) | 3-5 phases | Sequential cascade, auto-decide mechanical findings | Reviewing concrete artifacts, PRs, specs, architecture docs |
 | **Dialectic** (`--rigor dialectic`) | 2 + supervisor | Socratic dialogue, 3-5 rounds of deepening | Deep understanding, philosophical/strategic questions |
 | **Subteam/Org** (`--teams`, `--org`) | 9-22 | Named teams + Socrates + Plato | Cross-domain complexity, 3+ domains with different incentives |
 | **Swarm** (`--swarm`) | 20-1000+ | Taxonomy-partitioned, environment-based coordination | Predictions, landscape surveys, exhaustive red teaming |
@@ -220,6 +224,38 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
 
 No `--superpower` flag exists. Same capability, zero cognitive load.
 
+### Reviewers Mode (`--reviewers`)
+
+Top-down sequential review pipeline. Unlike default Quorum (horizontal debate), `--reviewers` runs phases in cascade — each phase's output feeds the next. Personas are dynamically assembled based on the prompt topic, not hardcoded.
+
+```bash
+# Review a plan through domain-appropriate phases
+/quorum "Review this API design for production readiness" --reviewers --artifact api-spec.md
+
+# Review an app design top-down
+/quorum "Is this iOS app architecture ready to ship?" --reviewers --artifact ARCHITECTURE.md
+
+# Review a security posture
+/quorum "Evaluate our auth implementation" --reviewers --artifact auth-flow.md
+```
+
+**How it works:**
+
+1. **Intake & Assembly** — Supervisor reads the prompt, assembles 3-5 review phases with topic-appropriate personas (e.g., Security: Threat Modeler → Architect → Penetration Tester → Compliance)
+2. **Sequential Review** — Each phase runs one reviewer who receives the original prompt + artifact + ALL prior phase outputs. Findings are classified as **Mechanical** (auto-decidable) or **Taste** (needs human judgment)
+3. **Auto-resolution** — Mechanical findings are auto-resolved using decision principles (completeness, blast radius, pragmatic, DRY, explicit over clever, bias toward action)
+4. **Final Gate** — Only taste decisions surface for your approval. Cross-phase themes are highlighted
+
+**--reviewers vs Default vs --max:**
+
+| | Default (horizontal) | --max (adversarial) | --reviewers (vertical) |
+|--|---------------------|--------------------|-----------------------|
+| Topology | Flat panel | Iterative convergence | Sequential cascade |
+| Agent relationship | Peers debate | Attackers vs defenders | Each builds on previous |
+| Decision style | Emerges from debate | Survives sustained attack | Auto-decided, taste surfaced |
+| Best for | Ambiguous questions | Stress-testing decisions | Reviewing concrete artifacts |
+| Output | Synthesized verdict | Converged/tension/exhausted | Approved with overrides |
+
 ### Rules for Prompts That Don't Produce Garbage
 
 1. **Name the exact pipeline, not the app.** "Fix the detection pipeline" not "fix Spot"
@@ -339,6 +375,9 @@ It's not a developer tool. It's a thinking tool. Any question where you'd want a
 # Document review
 /quorum "Review this contract for risks I might miss" --artifact contract.pdf
 
+# Sequential review pipeline — assembles domain-appropriate reviewers
+/quorum "Review our payment flow for PCI compliance" --reviewers --artifact payment-flow.md
+
 # Research landscape — auto-routes to web research
 /quorum "Complete landscape of EEG-based authentication methods"
 
@@ -366,13 +405,15 @@ It's not a developer tool. It's a thinking tool. Any question where you'd want a
 |------|------|--------|-------------|
 | Default | *(none)* | 5 | SME panel debates, supervisor synthesizes |
 | Max | `--max` | 7-15 | Full adversarial convergence, teams/dialectic/superpower auto-selected |
+| Reviewers | `--reviewers` | 3-5 phases | Sequential review cascade, auto-decide mechanical, surface taste |
 | Custom | `--set N` | N | Swarm auto-engages at 20+ |
 
-**Four optional flags:**
+**Five optional flags:**
 
 | Flag | Why It Can't Be Auto-Detected |
 |------|-------------------------------|
 | `--artifact PATH` | Supervisor can't know which file you mean |
+| `--reviewers` | User wants vertical sequential review, not horizontal debate |
 | `--no-web` | Privacy choice only the user can make |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
 | `--dry-run` | User wants to see the plan without spending tokens |
@@ -413,6 +454,9 @@ Quorum is a reasoning quality tool, not a magic truth machine. These are the kno
 
 <details>
 <summary><strong>Version History</strong></summary>
+
+### v6.0.0 — Reviewers Mode (2026-03-26)
+Sequential review pipeline (`--reviewers`). Dynamic persona assembly per topic. Mechanical/taste finding classification. Auto-resolution with decision principles. Converse mode prompts documented.
 
 ### v5.2.0 — Converse Mode (2026-03-22)
 Research-backed iterative adversarial convergence. 5-7 agents, 40/60 adversarial ratio, 10 peer-reviewed citations. Adversarial minimum raised from 1→2 for all swarm sizes ≥5 (Moscovici 1969). Validation gate honesty disclosure. Swarm O(patterns) honesty disclosure.

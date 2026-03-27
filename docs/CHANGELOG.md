@@ -2,6 +2,50 @@
 
 All notable changes to Quorum are documented here.
 
+## [v5.2.0](https://github.com/qinnovates/quorum/releases/tag/v5.2.0) — 2026-03-22
+
+### Added — Converse Mode (`--converse`)
+- **Converse Mode** — iterative adversarial convergence where the full panel (5-7 agents) stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on solutions that survive sustained critique
+- **Research-backed agent composition** — 40% adversarial / 60% constructive ratio derived from convergent findings across 8 research domains:
+  - Wisdom of crowds: Page (2007) diversity prediction theorem
+  - Groupthink prevention: Asch (1951) single-ally conformity breaking, Janis (1972)
+  - Adversarial collaboration: Kahneman (2003) 1:1 adversarial structure
+  - Devil's advocate: Nemeth (2001) authentic dissent > role-played DA; Schweiger (1986) counter-plans beat critique by 34%
+  - Jury deliberation: Moscovici (1969) consistent minority of 2; Nemeth (1977) unanimity rules; Kerr & MacCoun (1985)
+  - Multi-agent AI debate: Du et al. (2023) 3-agent optimum; Liang et al. (2023) performance drops at 4+ agents; Irving et al. (2018) 1:1 + judge
+  - Collective intelligence: Woolley et al. (2010) equal conversational turns; Lorenz et al. (2011) social influence narrowing
+  - Delphi method: Dalkey & Helmer (1963); Linstone & Turoff (2002)
+- **Five core personas:** Proposer (goes first), Realist (constructive pessimist), Breaker (red teamer), Synthesizer (what survived?), Judge (neutral arbiter, calls endpoint)
+- **Two additional personas for --full:** Historian (precedent), Survivor (pessimistic but constructive)
+- **Anti-duplication rules** — no repetition across rounds, every criticism requires counter-proposal, constructive pessimism only (no free nihilism)
+- **Convergence detection** — Judge tracks agreement growth, loop detection, diminishing returns. Three outcomes: CONVERGED / TENSION / EXHAUSTED
+- **Attack resistance map** — output shows each surviving component and which specific attacks it withstood
+- **Formula:** `Critics = min(floor(N × 0.4), 3)`, Builders fixed at minimum (Proposer + Synthesizer + Judge)
+
+### Architecture
+- New Converse Mode section in ARCHITECTURE.md with full research foundation table (10 citations with DOIs)
+- Converse Mode comparison table vs Standard, Dialectic, Swarm
+- 7 new prompt templates in PROMPTS.md (Proposer, Realist, Breaker, Synthesizer, Judge, Historian, Survivor)
+- Converse Mode section in GUIDE.md with decision matrix, cost table, and examples
+- Anti-duplication rules, convergence detection protocol, and phase-by-phase workflow
+
+### Fixed
+- **Deletang et al. citation misattribution** — README attributed the "lossy decompression produces artifacts/hallucinations" claim to Deletang et al. 2024, but that paper is about lossless compression. Corrected to the full Shannon → Deletang → Chlon attribution chain. SAFETY.md already had the correct attribution.
+- **Validation gate honesty** — Phase 5 "Independent Validation" renamed to "Validation Gate" with explicit disclosure that agent review is prompt-level independence, not structural independence (per Lorenz et al. 2011, Nemeth 2001)
+- **Swarm O(patterns) honesty** — Added disclosure that the Environment Server is prompt-orchestrated, not a persistent runtime service. O(patterns) scaling is a design goal, not a current guarantee.
+- **Adversarial minimum raised** — Standard mode minimum adversarial agents at 5-agent swarms raised from 1 to 2, matching Moscovici (1969) credible minority threshold
+
+### Changed
+- Version bump 5.1.0 → 5.2.0
+- New flag: `--converse` (composable with `--full`, `--mode research`, `--seed`, `--viz`)
+- README updated: scaling table, features list, examples, new "What's New in v5.2.0" section
+- SKILL.md updated: argument-hint, options table, examples
+
+### Design Process
+Feature designed through adversarial research: 59 searches across Semantic Scholar, Google Scholar, arXiv, CORE, and Crossref. All DOIs verified. Research challenged the initial assumption that "more critics = better" — the evidence converged on quality and authenticity of dissent over quantity.
+
+---
+
 ## [v5.1.0](https://github.com/qinnovates/quorum/releases/tag/v5.1.0) — 2026-03-22
 
 ### Added — Outcome Predictor
