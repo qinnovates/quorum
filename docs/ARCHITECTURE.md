@@ -357,6 +357,118 @@ The supervisor writes the final report. This is not aggregation -- it is **autho
 - **External challenge**: The cross-AI gate sends your swarm's conclusions to a different AI system that has no loyalty to the answer
 - **Non-overlapping research**: Research agents search different sources with different terms -- no duplicated effort
 
+### Cognitive Diversity Profiles (CDP)
+
+Personas define WHAT an agent knows. CDP defines HOW the agent thinks. Every agent gets a 3-axis cognitive profile that creates productive tension with their domain expertise.
+
+**The problem CDP solves:** All Quorum agents are instances of the same base model. Different prompts create different angles but the same cognitive patterns. A "conservative security expert" and a "bold product strategist" are different characters played by the same actor. CDP makes each character actually process information differently.
+
+#### The Three Axes (Discrete, Not Continuous)
+
+Each axis has 3 levels. 3 axes x 3 levels = 27 possible profiles.
+
+| Axis | Low | Mid | High |
+|------|-----|-----|------|
+| **Risk Tolerance (R)** | "Weight downside scenarios 3x over upside. When uncertain, recommend the conservative option." | "Weight upside and downside equally. Present both." | "Weight upside scenarios 2x over downside. When uncertain, recommend the bold option." |
+| **Skepticism (S)** | "Accept claims with moderate evidence. Focus energy on solutions, not questioning premises." | "Question claims that lack direct evidence. Verify key assumptions." | "Challenge every assumption. Demand primary sources. Treat consensus as a signal to investigate harder." |
+| **Abstraction (A)** | "Focus on concrete implementation: specific tools, exact steps, measurable outcomes." | "Balance concrete specifics with architectural patterns." | "Focus on system-level patterns, structural forces. Specific tools are interchangeable." |
+
+These are analytical instructions, not personality descriptions. "R=low" doesn't mean the agent sounds cautious. It means the agent structurally weights negative outcomes more heavily in its analysis. The distinction matters: personality prompting changes wording; analytical instructions change what the agent pays attention to.
+
+**Why discrete, not continuous?** A continuous slider from 0.0 to 1.0 implies the LLM can distinguish R=0.3 from R=0.4. It cannot. Empirically, LLMs respond to qualitative framing shifts (conservative vs moderate vs bold), not fine-grained numeric gradients. Three levels capture the meaningful variation without false precision.
+
+#### Anti-Stereotypical Assignment
+
+The supervisor does NOT pick CDP profiles that "match" the persona. A conservative security expert is just... a security expert. That's the default. CDP creates productive tension by assigning the LEAST expected cognitive profile for each archetype.
+
+**Fixed tension table (mechanical, not supervisor-judged):**
+
+| Archetype | Tension Axis | Tension Value | Domain-Contextualized Instruction |
+|-----------|-------------|---------------|----------------------------------|
+| Technical | Risk Tolerance | HIGH | "Identify technical bets that create asymmetric upside. Where does the risky approach yield 10x return?" |
+| Adversarial | Risk Tolerance | LOW | "Find what is worth preserving in the proposal. What survives your attack, and why does it survive?" |
+| Domain Expert | Abstraction | HIGH | "Step above your domain. What structural forces shape this problem beyond the technical specifics?" |
+| Creative | Skepticism | HIGH | "Pressure-test every creative suggestion. Which ideas survive contact with implementation reality?" |
+| Regulatory | Abstraction | LOW | "Translate every principle into a concrete implementation checklist. No regulation without a test." |
+| User Advocate | Skepticism | LOW | "Assume the builder had good reasons. What user value were they optimizing for?" |
+| Business | Abstraction | HIGH | "Think beyond this quarter. What are the 5-year structural forces that make this decision right or wrong?" |
+
+The tension table is fixed. The supervisor reads it, doesn't judge it. This removes supervisor bias from parameter assignment.
+
+Remaining 2 axes (not the tension axis) are assigned to maximize Hamming distance from previously assigned agents. This is a lookup from 27 profiles, not an optimization.
+
+#### CDP Assignment Algorithm (Phase 0, Step 3.5)
+
+```
+FOR each agent i in panel:
+  1. Read archetype category (already assigned in Step 3)
+  2. Look up tension table → get tension_axis, tension_value, contextualized_instruction
+  3. Set tension_axis = tension_value
+  4. For remaining 2 axes: select from {low, mid, high} to maximize
+     Hamming distance from all previously assigned agents
+  5. Compile 3 axis values into analytical instruction clauses
+  6. APPEND compiled clauses + contextualized instruction to {{STANCE_DIRECTIVE}}
+  7. Derive search focus from profile:
+     - S.high → search terms include "criticism of", "why [X] fails"
+     - R.high → search terms include "success stories", "breakthrough"
+     - A.high → search terms include "systematic review", "meta-analysis"
+     - A.low → search terms include "implementation guide", "case study"
+  8. Generate {{SEED_QUESTION_1}} and {{SEED_QUESTION_2}} informed by CDP profile
+```
+
+#### The Math: Why This Works (And Where It Doesn't)
+
+**Parameter Dispersion (D_p):**
+
+For N agents with profiles from the 27-option space, measure how well the selected profiles fill the space:
+
+```
+D_p = min_{i≠j} hamming(p_i, p_j) / max_{i≠j} hamming(p_i, p_j)
+```
+
+D_p = 1 means all pairs are equidistant (optimal). D_p near 0 means at least one pair is identical or near-identical (clustering).
+
+For N=5 from 27 options, the optimal selection achieves D_p > 0.85. For N=15, D_p > 0.70. At N=200 (swarm), Halton sequences in the continuous [0,1]^3 cube replace discrete selection, with D_p measured via star discrepancy.
+
+**Parameter-Adjusted Convergence (C*):**
+
+```
+C* = C × (1 + k × (CDI − 0.5))
+
+where k = 0.3 (initial calibration, adjust via A/B testing)
+
+CDI = 0.2 × D_p + 0.4 × D_r + 0.4 × D_o
+  D_p = parameter dispersion (above)
+  D_r = reasoning path diversity (source overlap + blind spot overlap)
+  D_o = existing Independence Score
+```
+
+| CDI | Multiplier | Meaning |
+|-----|-----------|---------|
+| 0.2 (low diversity) | 0.91 | Penalize: easy agreement from similar thinkers |
+| 0.5 (baseline) | 1.00 | No adjustment |
+| 0.8 (high diversity) | 1.09 | Boost: agreement across diverse cognitive frames |
+
+**What this means:** A homogeneous panel must reach raw C = 0.88 to trigger CONVERGED (because the CDI penalty brings C* down to 0.80). A diverse panel can converge at raw C = 0.73 (because the CDI boost brings C* up to 0.80). Agreement among people who think differently IS stronger evidence.
+
+**Honest limitations of the math:**
+- k = 0.3 is a design choice, not a derived constant. It may be too high or too low. The A/B validation protocol will calibrate it.
+- D_p (parameter dispersion) gets only 0.2 weight because it measures what was CONFIGURED, not what was ACHIEVED. You can spread parameters perfectly and still get homogeneous output if the LLM ignores the instructions. D_o (output independence) at 0.4 weight is the reality check.
+- The CDI composite assumes D_p, D_r, and D_o are independent. They are likely correlated (high parameter spread → high reasoning diversity → high output independence). The weights may double-count. This is acceptable for an operational heuristic but would not survive peer review as a statistical model.
+
+#### Validation Protocol (Before Shipping)
+
+Run 10 diverse questions through Quorum twice: once with CDP enabled, once with uniform parameters (all agents get mid/mid/mid).
+
+**CDP ships if and only if:**
+1. Mean Independence Score: I(cdp) > I(baseline) + 0.1
+2. Evidence quality: mean % sourced claims with CDP >= mean % sourced claims without CDP
+3. Blind spot coverage: mean blind spots identified with CDP >= mean without CDP
+
+If condition 1 fails, CDP doesn't produce genuine diversity. Kill it.
+If condition 1 passes but 2 or 3 fail, CDP produces diverse garbage. Kill it.
+All three must pass.
+
 ---
 
 ## Challenge Levels (`--rigor`)

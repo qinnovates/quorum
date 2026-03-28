@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="160" viewBox="0 0 700 160">
+  <defs>
+    <linearGradient id="topbar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4006A"/>
+      <stop offset="25%" stop-color="#AB00D9"/>
+      <stop offset="50%" stop-color="#5C3D8F"/>
+      <stop offset="75%" stop-color="#1A6B9E"/>
+      <stop offset="100%" stop-color="#0097A7"/>
+    </linearGradient>
+    <linearGradient id="botbar" x1="100%" y1="0%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D4006A"/>
+      <stop offset="25%" stop-color="#AB00D9"/>
+      <stop offset="50%" stop-color="#5C3D8F"/>
+      <stop offset="75%" stop-color="#1A6B9E"/>
+      <stop offset="100%" stop-color="#0097A7"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4006A"/>
+      <stop offset="50%" stop-color="#AB00D9"/>
+      <stop offset="100%" stop-color="#0097A7"/>
+    </linearGradient>
+    <filter id="innershadow">
+      <feComponentTransfer in="SourceAlpha">
+        <feFuncA type="table" tableValues="1 0"/>
+      </feComponentTransfer>
+      <feGaussianBlur stdDeviation="2"/>
+      <feOffset dx="0" dy="1" result="shadow"/>
+      <feFlood flood-color="#1A0030" flood-opacity="0.4"/>
+      <feComposite in2="shadow" operator="in"/>
+      <feComposite in2="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Top border -->
+  <rect x="8" y="2" width="684" height="8" rx="4" ry="4" fill="url(#topbar)" filter="url(#innershadow)" stroke="#1A0030" stroke-width="0.5"/>
+  <text x="680" y="8" font-family="monospace" font-size="3.5" fill="#ffffff" opacity="0.08" text-anchor="end">KevQ</text>
+
+  <!-- Title -->
+  <text x="350" y="78" font-family="'SF Pro Display', 'Inter', 'Helvetica Neue', 'Segoe UI', sans-serif" font-size="40" font-weight="300" fill="url(#title)" text-anchor="middle" letter-spacing="12">QUORUM</text>
+
+  <!-- Tagline -->
+  <text x="350" y="110" font-family="'SF Pro Text', 'Inter', 'Helvetica Neue', sans-serif" font-size="12" font-weight="300" fill="#86868B" text-anchor="middle" letter-spacing="2">Research-backed multi-agent intelligence. One command.</text>
+
+  <!-- Bottom border -->
+  <rect x="8" y="150" width="684" height="8" rx="4" ry="4" fill="url(#botbar)" filter="url(#innershadow)" stroke="#1A0030" stroke-width="0.5"/>
+  <text x="680" y="156" font-family="monospace" font-size="3.5" fill="#ffffff" opacity="0.08" text-anchor="end">KevQ</text>
+</svg>
