@@ -11,6 +11,12 @@ All notable changes to Quorum are documented here.
 - **Orthogonal composability** — `--ratify` composes with all tiers. `--max --ratify` = deep deliberation + audit + human approval. Two independent axes: depth (--max) and control (--ratify)
 - **Token cost** — ~1.7x base for --ratify alone, ~2.4x for --max --ratify
 
+### Added — Research Drift Diff (Anti-Hallucination Layer)
+- **Drift Diff** — tracks claims ADDED between Phase 1 (independent research) and Phase 4 (synthesis). Classifies each new claim as EXPANDED (sourced), DRIFT (unsourced — flagged for user validation), or INVERTED (finding direction changed from source — blocks delivery)
+- **Mandatory in every verdict** — diff is presented to the user alongside the Evidence Scorecard. DRIFT and INVERTED findings require user validation before the synthesis is final
+- **Catches the most dangerous hallucination pattern:** real DOI grafted onto fabricated metadata with inverted finding direction. Based on QIF research protocol incident (2026-03-17)
+- Validation layers increased from 5 to 6
+
 ### Changed — Terminology: "adversarial" → "dissent"
 - **Renamed all instances** of "adversarial" to "dissent" across all documentation and skill definitions (~96 occurrences, 8 files)
 - **Rationale:** "Dissent" is the native term in the cognitive science literature that grounds Quorum (Nemeth 2001, Moscovici 1969, Asch 1951). It accurately describes the mechanism — productive disagreement that improves group output — without the militaristic connotation of "adversarial"

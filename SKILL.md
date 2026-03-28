@@ -454,6 +454,31 @@ Hallucination Risk: MEDIUM (17% unsourced)
 
 The scorecard is computed, not estimated. The supervisor counts every claim in the synthesis, traces each to a source (or marks it unsourced), and computes the percentages. This is math, not judgment.
 
+### Research Drift Diff (All Modes)
+
+Tracks claims that were ADDED between Phase 1 (independent work) and Phase 4 (synthesis). New claims that weren't in any agent's original research are the highest hallucination risk — they appeared during cross-review or synthesis without a source trail.
+
+```
+RESEARCH DRIFT DIFF — Phase 1 → Phase 4
+
+EXPANDED (new claims with sources):  2
+  [D-001] "Event sourcing reduces audit complexity by 40%" — Fowler (2005)
+
+DRIFT (new claims, no source):       1  ← FLAGGED
+  [D-002] "Most teams adopt within 6 months" — unsourced expansion
+
+INVERTED (finding direction changed): 0
+
+Drift Risk: LOW (1 unsourced expansion, 0 inversions)
+```
+
+**Classification:**
+- **EXPANDED** — new claim appeared with a source. Included in synthesis, noted in diff for user awareness
+- **DRIFT** — new claim appeared without a source. Flagged in verdict. Supervisor must source it, mark it unverified, or remove it
+- **INVERTED** — a claim's conclusion flipped from what the source says. **Blocks delivery.** Must be corrected before the verdict ships
+
+The Drift Diff is mandatory in every verdict output. DRIFT and INVERTED findings are presented to the user for validation — the supervisor cannot silently incorporate unsourced expansions into the synthesis.
+
 ### Independence Score (All Modes)
 
 Measures how independently agents arrived at their conclusions:
@@ -470,13 +495,14 @@ I < 0.4  → LOW → trigger: supervisor re-examines whether agents were given e
 
 **Why this matters:** Woolley et al. (2010) showed collective intelligence requires diversity of approach, not just diversity of opinion. If two agents reach the same conclusion via the same reasoning path, that's one data point, not two. The Independence Score catches this.
 
-## Validation (5 Layers)
+## Validation (6 Layers)
 
 1. **Source Grading** — STRONG / MODERATE / WEAK / UNVERIFIED
 2. **Contradiction Check** — catches agents agreeing without evidence
 3. **Hallucination Red Flags** — fabricated citations, too-clean stats, universal claims
-4. **Dissent Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
-5. **Transparency** — Evidence Scorecard + Independence Score + Bias Flags in every report
+4. **Research Drift Diff** — tracks claims added between Phase 1→4. New unsourced claims = DRIFT (flagged). Inverted findings = CRITICAL (blocks delivery). Diff presented to user for validation before synthesis is final. See [full spec →](docs/ARCHITECTURE.md#layer-35-research-drift-diff-phase-24-transition)
+5. **Dissent Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
+6. **Transparency** — Evidence Scorecard + Independence Score + Bias Flags + Drift Diff in every report
 
 ## Anti-Boxing (6 Rules)
 

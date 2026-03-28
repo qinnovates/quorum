@@ -628,19 +628,32 @@ graph TD
 
 The single best improvement: **always include `--artifact` pointing to your design doc.**
 
-## Validation & BS Detection (5 Layers)
+## Validation & BS Detection (6 Layers)
 
 | Layer | What It Does |
 |---|---|
 | Source Grading | Every finding rated STRONG / MODERATE / WEAK / UNVERIFIED |
 | Contradiction Check | Catches when agents disagree AND when they agree without evidence |
 | Hallucination Red Flags | Supervisor checklist for fabricated stats, fake citations, too-clean numbers |
+| **Research Drift Diff** | **Tracks claims ADDED between Phase 1→4. Unsourced expansions = DRIFT (flagged for user validation). Inverted findings = CRITICAL (blocks delivery). Diff shown in every verdict** |
 | Dissent Validation | Reviewer challenges the synthesis (web search preferred, subagent with fresh context, or same-session agent review as fallback) |
-| Transparent Output | Report shows what's verified, what's unresolved, what couldn't be checked |
+| Transparent Output | Report shows what's verified, what's unresolved, what couldn't be checked + Drift Diff |
 
-**The rule: If it can't be sourced, it gets flagged. If it can't be verified, it says so. If agents disagree, both sides are shown. You decide — not the AI.**
+**The rule: If it can't be sourced, it gets flagged. If a claim drifted in without a source, it gets diffed. If a finding's direction inverted from the source, it blocks delivery. You decide — not the AI.**
 
-Every synthesis also includes: convergence score, bias detection (4 cognitive bias checks), independence metric, and evidence scorecard. [Full methodology ->](docs/ARCHITECTURE.md#structured-reasoning-metrics)
+### Research Drift Diff
+
+The most dangerous hallucination isn't a fabricated citation — it's a real citation with an inverted finding. The DOI resolves, but the claim says the opposite of what the paper actually found.
+
+The Drift Diff catches this by comparing every claim in the synthesis against the Phase 1 research pool:
+
+- **EXPANDED** — new claim with a source (agent found it during cross-review). Included, noted for awareness
+- **DRIFT** — new claim with NO source (appeared during synthesis). Flagged. Supervisor must source it, mark it unverified, or remove it
+- **INVERTED** — claim direction flipped from the source material. **Blocks delivery** until corrected
+
+The diff is mandatory in every verdict. You see exactly what changed between research and synthesis, and you validate before acting on it.
+
+Every synthesis also includes: convergence score, bias detection (4 cognitive bias checks), independence metric, evidence scorecard, and drift diff. [Full methodology ->](docs/ARCHITECTURE.md#structured-reasoning-metrics)
 
 ## Anti-Boxing (6 Rules)
 

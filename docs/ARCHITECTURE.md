@@ -880,6 +880,65 @@ Before writing the synthesis, the supervisor runs this checklist on every key fi
 | Claim that perfectly supports the majority position | Confirmation bias, not evidence | Flag for extra scrutiny |
 | Technical detail outside the agent's assigned domain | Cross-domain hallucination | Verify or remove |
 
+### Layer 3.5: Research Drift Diff (Phase 2→4 transition)
+
+When agents expand on research across phases, new claims can enter the synthesis that weren't in the original source material. The Drift Diff tracks what was ADDED between phases and flags it for validation.
+
+**How it works:**
+
+1. **Claim extraction:** After Phase 1, the supervisor extracts all factual claims from each agent's output. Each claim is tagged with its source (DOI, URL, "agent reasoning", or "unsourced").
+
+2. **Diff calculation at Phase 4:** After the supervisor drafts the synthesis, every claim in the synthesis is compared against the Phase 1 claim pool:
+
+```
+For each claim in synthesis:
+  if claim exists in Phase 1 pool with source → SOURCED (no drift)
+  if claim exists in Phase 1 pool without source → UNSOURCED (existing risk)
+  if claim is NEW (not in Phase 1 pool) → DRIFT CANDIDATE
+    if new claim has a source → EXPANDED (agent found something in cross-review)
+    if new claim has no source → DRIFT (unsourced expansion — highest risk)
+```
+
+3. **Drift Diff output:** All DRIFT and EXPANDED claims are collected into a structured diff:
+
+```
+RESEARCH DRIFT DIFF — Phase 1 → Phase 4
+
+EXPANDED (new claims with sources): 3
+  [D-001] "Event sourcing reduces audit complexity by 40%"
+          Source: Architect agent citing Fowler (2005)
+          Status: VERIFY — new claim not in original research pool
+
+DRIFT (new claims without sources): 2
+  [D-002] "Most teams adopt event sourcing within 6 months"
+          Source: none — appeared in Synthesizer's summary
+          Status: FLAG — unsourced expansion, likely hallucinated
+  [D-003] "Migration cost is bounded to 3 days"
+          Source: none — appeared in Realist's round 2 response
+          Status: FLAG — unsourced estimate, needs validation
+
+INVERTED (claim direction changed from source): 1
+  [D-004] Phase 1: "Redis caching adds ~50ms latency" (Agent 2, citing benchmark)
+          Phase 4: "Redis caching reduces latency by 50ms"
+          Status: CRITICAL — finding direction inverted
+```
+
+4. **Validation gate:** The Drift Diff is presented to the user in the final verdict. DRIFT and INVERTED findings are mandatory review items — the supervisor cannot silently incorporate them into the synthesis.
+
+**When the Drift Diff blocks delivery:**
+
+| Finding Type | Action |
+|-------------|--------|
+| EXPANDED (sourced) | Included in synthesis, noted in diff for user awareness |
+| DRIFT (unsourced) | Flagged in verdict. Supervisor must either: find a source via web search, downgrade to "unverified claim", or remove from synthesis |
+| INVERTED (direction changed) | **Blocks delivery.** Supervisor must resolve before presenting verdict. The claim is either corrected to match the source or explicitly flagged as a supervisor judgment call with reasoning |
+
+**Why this matters:**
+
+The most dangerous hallucination pattern is a real DOI grafted onto fabricated metadata with an inverted finding direction. It passes superficial citation checks because the DOI resolves, but the actual claim is the opposite of what the paper says. The Drift Diff catches this by comparing claim direction, not just claim existence.
+
+This is the same failure mode documented in the QIF research protocol (2026-03-17 incident: "Mota et al. 2023" with a valid DOI but inverted finding). The Drift Diff applies that lesson to all Quorum research output.
+
 ### Layer 4: Independent Validation (Phase 5)
 
 The synthesis gets sent to a reviewer who had no part in creating it. This reviewer specifically looks for:
