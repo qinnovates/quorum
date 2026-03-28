@@ -128,6 +128,48 @@ Before spawning any agent, answer these questions internally:
 
 These answers shape everything downstream. Skip this step and the swarm produces noise.
 
+### Vagueness Gate (Auto-Triggered)
+
+**Before spawning agents, the supervisor evaluates whether the prompt is specific enough to produce a useful verdict.** This is not `--ponder` — it fires automatically when the supervisor detects vagueness.
+
+**Vagueness signals (any 2+ triggers the gate):**
+
+| Signal | Example | Why It's a Problem |
+|--------|---------|-------------------|
+| No success criteria | "What about security?" | Agents don't know what "good" looks like |
+| No system/scope named | "How should we handle auth?" | Could be a mobile app, a microservice, a CLI tool — each needs different agents |
+| No constraint named | "What's the best database?" | Without constraints (scale, budget, team, latency), every answer is equally valid |
+| Ambiguous optimization target | "Should we improve performance?" | Latency? Throughput? Memory? Build time? Each spawns different experts |
+| Multiple unrelated questions | "Should we use Redis and also what about our hiring process?" | One swarm can't optimize for two unrelated domains |
+
+**When the gate triggers, the supervisor asks 2-4 targeted questions before spawning:**
+
+```
+Your question: "How should we handle auth?"
+
+Before I assemble the panel, a few questions to make sure the agents
+focus on the right thing:
+
+1. What system is this for? (web app, mobile, API, CLI, internal tool)
+2. What exists today? (no auth, basic JWT, third-party like Auth0, custom)
+3. What matters most? (security, UX, implementation speed, compliance)
+
+Your answers shape which experts I bring in and what they optimize for.
+```
+
+**The supervisor asks only what it cannot infer.** If the user's prompt says "auth for our iOS app," the supervisor doesn't ask about the system — it already knows. If the prompt says "we need to be HIPAA-compliant," the supervisor doesn't ask about constraints — compliance is the constraint.
+
+**After the user responds, the supervisor generates a refined prompt internally** and proceeds to Step 1 (mode detection). The refined prompt — not the original vague prompt — is what agents see.
+
+**When the gate does NOT trigger:**
+- Prompt names a specific system, decision, or scope
+- Prompt includes constraints or success criteria
+- Prompt is a well-formed binary question ("X or Y for Z?")
+- `--ponder` is set (interactive Q&A overrides the auto-gate)
+- User said "just run it" or equivalent override
+
+**Relationship to `--ponder`:** The vagueness gate is automatic and asks only what's needed (2-4 questions). `--ponder` is opt-in and runs a full interactive prompt optimization session. They don't conflict — if `--ponder` is set, it supersedes the vagueness gate.
+
 ### Step 1: Detect Query Mode
 
 | Mode | Trigger | Agent Allocation |

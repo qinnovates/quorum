@@ -158,6 +158,36 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
 
 No `--superpower` flag exists. Same capability, zero cognitive load.
 
+## Vagueness Gate (Auto-Triggered)
+
+If your prompt is too vague to produce a useful verdict, the supervisor stops and asks before spending tokens. **This fires automatically — no flag needed.**
+
+**What triggers it** (any 2+):
+- No system or scope named ("How should we handle auth?" — auth for what?)
+- No constraints ("What's the best database?" — best for what scale, budget, team?)
+- No success criteria ("Should we improve performance?" — which metric?)
+- Multiple unrelated questions in one prompt
+
+**What happens:**
+```
+Your question: "How should we handle auth?"
+
+Before I assemble the panel, a few questions:
+
+1. What system is this for? (web app, mobile, API, internal tool)
+2. What exists today? (none, JWT, Auth0, custom)
+3. What matters most? (security, UX, speed, compliance)
+```
+
+You answer. The supervisor generates a precise internal prompt from your answers. Agents see the refined prompt, not your original vague one.
+
+**When it does NOT trigger:**
+- Prompt already names a system, decision, and constraint
+- Well-formed binary question ("X or Y for Z?")
+- You said "just run it" (override)
+
+**Relationship to `--ponder`:** The vagueness gate asks only what's needed (2-4 questions). `--ponder` runs a full interactive prompt optimization session. If `--ponder` is set, it supersedes the gate.
+
 ## Rules for Prompts That Don't Produce Garbage
 
 1. **Name the exact pipeline, not the app.** "Fix the detection pipeline" not "fix Spot"
@@ -338,7 +368,7 @@ The Auditor is isolated from the panel's deliberation to prevent anchoring (Lore
 
 ### Default (5 agents)
 
-1. **Setup** — Supervisor analyzes the question, picks 5 SMEs with diverse perspectives. Minimum 2 dissent.
+1. **Setup + Vagueness Gate** — Supervisor analyzes the question. If the prompt is too vague to produce a useful verdict (no scope, no constraints, no success criteria), the supervisor asks 2-4 targeted clarifying questions before spawning agents. Picks 5 SMEs with diverse perspectives. Minimum 2 dissent.
 2. **Independent work** — All agents work in parallel. No one sees anyone else's output.
 3. **Triage** — Supervisor reads all reports, builds claim pool (text + source + direction for every factual claim), identifies key disagreements.
 4. **Cross-review** — Debate pairs argue. Devil's Advocate challenges the majority. Critics must counter-propose, not just attack.
