@@ -2,11 +2,26 @@
 
 All notable changes to Quorum are documented here.
 
+## [v7.1.0](https://github.com/qinnovates/quorum/releases/tag/v7.1.0) — 2026-03-28
+
+### Added — Ratify Mode (`--ratify`)
+- **Human-in-the-loop approval gate** — after deliberation, `--ratify` adds a structurally independent Auditor review and pauses for human approval before the verdict is final
+- **Auditor agent** — fresh agent invocation with structural independence (reads ONLY original question + verdict, no phase history). Evaluates: logical coherence, evidence sufficiency, scope completeness, internal consistency, actionability. Research basis: Lorenz et al. (2011) social influence isolation
+- **Human review** — Accept / Refine / Reject. REFINE injects a constraint and re-runs Phases 3-7 once. One revision maximum — research (Schulz-Hardt et al. 2006) shows first revision captures the quality gain, subsequent rounds flatten
+- **Orthogonal composability** — `--ratify` composes with all tiers. `--max --ratify` = deep deliberation + audit + human approval. Two independent axes: depth (--max) and control (--ratify)
+- **Token cost** — ~1.7x base for --ratify alone, ~2.4x for --max --ratify
+
+### Changed — Terminology: "adversarial" → "dissent"
+- **Renamed all instances** of "adversarial" to "dissent" across all documentation and skill definitions (~96 occurrences, 8 files)
+- **Rationale:** "Dissent" is the native term in the cognitive science literature that grounds Quorum (Nemeth 2001, Moscovici 1969, Asch 1951). It accurately describes the mechanism — productive disagreement that improves group output — without the militaristic connotation of "adversarial"
+- **Preserved proper nouns:** "adversarial" retained where it refers to external concepts (Kahneman's "adversarial collaboration", SimpleQA adversarial benchmarks, adversarial attack surfaces in prompt templates)
+- Key renames: "adversarial convergence" → "dissent-driven convergence", "adversarial agents" → "dissent agents", "Adversarial 1/2" → "Dissent 1/2", "adversarial minimum" → "dissent minimum", "adversarial ratio" → "dissent ratio"
+
 ## [v5.2.0](https://github.com/qinnovates/quorum/releases/tag/v5.2.0) — 2026-03-22
 
 ### Added — Converse Mode (`--converse`)
-- **Converse Mode** — iterative adversarial convergence where the full panel (5-7 agents) stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on solutions that survive sustained critique
-- **Research-backed agent composition** — 40% adversarial / 60% constructive ratio derived from convergent findings across 8 research domains:
+- **Converse Mode** — iterative dissent-driven convergence where the full panel (5-7 agents) stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on solutions that survive sustained critique
+- **Research-backed agent composition** — 40% dissent / 60% constructive ratio derived from convergent findings across 8 research domains:
   - Wisdom of crowds: Page (2007) diversity prediction theorem
   - Groupthink prevention: Asch (1951) single-ally conformity breaking, Janis (1972)
   - Adversarial collaboration: Kahneman (2003) 1:1 adversarial structure
@@ -33,7 +48,7 @@ All notable changes to Quorum are documented here.
 - **Deletang et al. citation misattribution** — README attributed the "lossy decompression produces artifacts/hallucinations" claim to Deletang et al. 2024, but that paper is about lossless compression. Corrected to the full Shannon → Deletang → Chlon attribution chain. SAFETY.md already had the correct attribution.
 - **Validation gate honesty** — Phase 5 "Independent Validation" renamed to "Validation Gate" with explicit disclosure that agent review is prompt-level independence, not structural independence (per Lorenz et al. 2011, Nemeth 2001)
 - **Swarm O(patterns) honesty** — Added disclosure that the Environment Server is prompt-orchestrated, not a persistent runtime service. O(patterns) scaling is a design goal, not a current guarantee.
-- **Adversarial minimum raised** — Standard mode minimum adversarial agents at 5-agent swarms raised from 1 to 2, matching Moscovici (1969) credible minority threshold
+- **Dissent minimum raised** — Standard mode minimum dissent agents at 5-agent swarms raised from 1 to 2, matching Moscovici (1969) credible minority threshold
 
 ### Changed
 - Version bump 5.1.0 → 5.2.0
@@ -42,7 +57,7 @@ All notable changes to Quorum are documented here.
 - SKILL.md updated: argument-hint, options table, examples
 
 ### Design Process
-Feature designed through adversarial research: 59 searches across Semantic Scholar, Google Scholar, arXiv, CORE, and Crossref. All DOIs verified. Research challenged the initial assumption that "more critics = better" — the evidence converged on quality and authenticity of dissent over quantity.
+Feature designed through dissent research: 59 searches across Semantic Scholar, Google Scholar, arXiv, CORE, and Crossref. All DOIs verified. Research challenged the initial assumption that "more critics = better" — the evidence converged on quality and authenticity of dissent over quantity.
 
 ---
 
@@ -133,12 +148,12 @@ Scaling approach inspired by MiroFish/OASIS swarm intelligence prediction engine
 - Fixed injection defense gap in ARCHITECTURE.md templates (Cross-Review, Devil's Advocate, Phase 5 reviewer)
 - Added profile sanitization for project profile poisoning prevention
 - Added injection defense to Provocateur archetype
-- Scoped adversarial agent file access to project directory
+- Scoped dissent agent file access to project directory
 
 ### Architecture
 - **SKILL.md split:** 1490 lines → 250 lines. All architecture, templates, and deep-dive content moved to docs/. SKILL.md is now user-facing only with progressive loading references.
 - **Divergence Engine:** Provocateur archetype, EXPLORE mode, preserve-if-unique triage, creative disruption check, research partition overlap
-- **Structural Protections (enforced):** Adversarial immunity, Socratic follow-ups (2-3 per team), refutation resistance (replaces confidence scores), Socratic Remainder, inverted early termination
+- **Structural Protections (enforced):** Dissent immunity, Socratic follow-ups (2-3 per team), refutation resistance (replaces confidence scores), Socratic Remainder, inverted early termination
 - **Anti-boxing:** Condition-based outsider injection (replaces counter-based), exploration signal in Socratic Gate, Contestability replaces Falsifiability
 - Added EXPLORE mode to GUIDE.md with Provocateur documentation
 

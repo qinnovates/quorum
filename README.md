@@ -14,7 +14,7 @@ Ask 5 AI agents the same question and you get 5 answers that sound different but
 
 The psychology: a group's IQ is not the average of its members' IQs. It's an emergent property of *how they communicate*. Groups where every participant contributes equally are measurably smarter than groups dominated by one expert, even the smartest person in the room (Woolley et al. 2010, 699 subjects). Quorum enforces equal turns structurally, not by suggestion.
 
-The philosophy: Socrates didn't lecture. He questioned. He found what you believed and asked why until the belief either held or collapsed. Plato documented the method. 2,400 years later, academics still use it because nothing better has replaced it. Quorum's adversarial agents do the same thing. They don't just disagree. They ask "why does this hold?" and "what breaks it?" until the answer either survives or doesn't.
+The philosophy: Socrates didn't lecture. He questioned. He found what you believed and asked why until the belief either held or collapsed. Plato documented the method. 2,400 years later, academics still use it because nothing better has replaced it. Quorum's dissent agents do the same thing. They don't just disagree. They ask "why does this hold?" and "what breaks it?" until the answer either survives or doesn't.
 
 The math: every synthesis is scored by a convergence formula, checked for 4 cognitive biases, measured for agent independence, and graded by evidence sourcing. Not vibes. Not vote counts. Measured signals with thresholds that determine whether a conclusion is battle-tested or still contested. [Full methodology ->](docs/ARCHITECTURE.md#structured-reasoning-metrics)
 
@@ -42,7 +42,7 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ```
 ═══════════════════════════════════════════════════
-QUORUM VERDICT — 5 agents, 2 adversarial, 1 round
+QUORUM VERDICT — 5 agents, 2 dissent, 1 round
 ═══════════════════════════════════════════════════
 
 EXECUTIVE SUMMARY
@@ -83,7 +83,7 @@ Quorum works on any question worth debating. Here are five:
 
 | | Question | Why Quorum beats a single AI |
 |---|---|---|
-| **Product** | *"Should we launch with a free tier or paid-only?"* | A single agent defaults to "free tier for growth." Quorum's adversarial agents stress-test unit economics, conversion assumptions, and support cost — so you get the tradeoffs, not just the popular answer |
+| **Product** | *"Should we launch with a free tier or paid-only?"* | A single agent defaults to "free tier for growth." Quorum's dissent agents stress-test unit economics, conversion assumptions, and support cost — so you get the tradeoffs, not just the popular answer |
 | **Growth** | *"What's the best channel to acquire our first 1,000 users?"* | One agent gives you a generic list. Quorum agents argue paid vs. organic vs. community with actual CAC estimates, surface which channels are saturated, and flag the ones where your specific audience actually lives |
 | **Content** | *"Is this blog post ready to publish?"* | One agent says "looks good!" Quorum agents review for factual accuracy, tone consistency, SEO gaps, and audience fit — then disagree about what "ready" means until the weak spots are exposed |
 | **Data** | *"Which metrics should we track for our MVP launch?"* | A single agent gives you the standard vanity metrics. Quorum's panel debates leading vs. lagging indicators, argues about what's actually measurable at your stage, and kills the metrics that sound good but drive no decisions |
@@ -115,7 +115,7 @@ You already know single-agent AI hallucinates. So you try multi-agent. You split
 
 **The missing challenge problem.** Splitting work and merging results is collaboration. It is not scrutiny. Nobody asked "what if this is wrong?" Nobody tested whether the conclusion survives attack. Nobody checked if the sources actually say what the agents claim they say. The answer was assembled, not stress-tested.
 
-**The groupthink problem.** When all agents converge on the same answer, most tools treat that as high confidence. Quorum treats it as the highest-risk scenario. Unanimous consensus triggers MORE scrutiny, not less. Because in groups, agreement without challenge is the most dangerous signal there is (Janis 1972). Quorum's 6 anti-boxing rules structurally prevent echo chambers: domain outsiders are injected from outside your profile, adversarial agents can never be pruned for "efficiency," and exploratory queries invert the agent roster to spawn perspectives you didn't ask for.
+**The groupthink problem.** When all agents converge on the same answer, most tools treat that as high confidence. Quorum treats it as the highest-risk scenario. Unanimous consensus triggers MORE scrutiny, not less. Because in groups, agreement without challenge is the most dangerous signal there is (Janis 1972). Quorum's 6 anti-boxing rules structurally prevent echo chambers: domain outsiders are injected from outside your profile, dissent agents can never be pruned for "efficiency," and exploratory queries invert the agent roster to spawn perspectives you didn't ask for.
 
 ### How every other AI tool works
 
@@ -188,7 +188,7 @@ graph LR
     style R fill:#333,stroke:#555,color:#aaa
 ```
 
-Split task, collect parts, merge. Great for parallelizing work. But no agent challenges another. No adversarial review. No fact-checking. If all 3 hallucinate the same thing, you get a confident, well-formatted wrong answer.
+Split task, collect parts, merge. Great for parallelizing work. But no agent challenges another. No dissent review. No fact-checking. If all 3 hallucinate the same thing, you get a confident, well-formatted wrong answer.
 
 **Other multi-agent solutions** (sequential review pipelines):
 
@@ -219,8 +219,8 @@ graph TD
     Q["Your Question"] --> S["Supervisor"]
     S --> A1["Expert 1"]
     S --> A2["Expert 2"]
-    S --> A3["Adversarial 1<br/><i>must counter-propose</i>"]
-    S --> A4["Adversarial 2<br/><i>less context on purpose</i>"]
+    S --> A3["Dissent 1<br/><i>must counter-propose</i>"]
+    S --> A4["Dissent 2<br/><i>less context on purpose</i>"]
     S --> A5["Domain Outsider<br/><i>outside the box</i>"]
     A1 & A2 & A3 & A4 & A5 --> DB["Debate<br/><i>pairs argue disagreements</i>"]
     DB --> BI["Bias Detection<br/><i>anchoring, confirmation,<br/>survivorship, base-rate</i>"]
@@ -244,8 +244,8 @@ Parallel agents with **mandatory dissent**. Critics must counter-propose, not ju
 
 | | Claude Subagents | Other Solutions | Quorum |
 |--|-----------------|-----------------|--------|
-| **Topology** | Parallel split-merge | Sequential single-agent reviews | Parallel debate + adversarial convergence |
-| **Adversarial** | None | Cross-model second opinion, no structured attack | 2+ mandatory critics per panel, counter-proposals required |
+| **Topology** | Parallel split-merge | Sequential single-agent reviews | Parallel debate + dissent-driven convergence |
+| **Dissent** | None | Cross-model second opinion, no structured attack | 2+ mandatory critics per panel, counter-proposals required |
 | **Bias Detection** | None | None | 4 cognitive bias checks per synthesis |
 | **Evidence Scoring** | None | None | Every claim graded STRONG/MODERATE/WEAK/UNSOURCED |
 | **Convergence Math** | None | None | C = A(0.5) + N(0.3) + D(0.2), scored per round |
@@ -268,7 +268,7 @@ Parallel agents with **mandatory dissent**. Critics must counter-propose, not ju
 # Quick opinion — 5 agents, done in 2 minutes
 /quorum "Should we build this feature custom or buy a SaaS tool?"
 
-# Stress-test a decision — full adversarial convergence
+# Stress-test a decision — full dissent-driven convergence
 /quorum "Should we build or buy our auth system?" --max
 
 # Settling an argument — auto-routes to dialectic
@@ -308,6 +308,12 @@ Parallel agents with **mandatory dissent**. Critics must counter-propose, not ju
 # Massive scale prediction — swarm auto-engages at 20+
 /quorum "Will BCI startups consolidate or fragment by 2028?" --set 200
 
+# Human-in-the-loop: review verdict before it's final
+/quorum "Should we open-source our core engine?" --max --ratify
+
+# Approve a PRD before automated execution
+/quorum "Build the obstacle detection pipeline" --max --ratify
+
 # Private, no web searches
 /quorum "Evaluate our internal security posture" --artifact audit.md --no-web
 
@@ -322,15 +328,16 @@ Parallel agents with **mandatory dissent**. Critics must counter-propose, not ju
 | Tier | Flag | Agents | What Happens |
 |------|------|--------|-------------|
 | Default | *(none)* | 3-8 | SME panel debates, supervisor synthesizes |
-| Max | `--max` | 7-15 | Full adversarial convergence with iterative rounds. Subsumes the old `--converse` flag. Teams/dialectic/superpower auto-selected as needed |
+| Max | `--max` | 7-15 | Full dissent-driven convergence with iterative rounds. Subsumes the old `--converse` flag. Teams/dialectic/superpower auto-selected as needed |
 | Reviewers | `--reviewers` | 3-5 phases | Sequential review cascade, auto-decide mechanical findings, surface taste calls |
 | Custom | `--set N` | N | At 20+, swarm architecture auto-engages (same as `--swarm`) |
 
-**Five optional flags:**
+**Six optional flags:**
 
 | Flag | Why It Can't Be Auto-Detected |
 |------|-------------------------------|
 | `--artifact PATH` | Supervisor can't know which file you mean |
+| `--ratify` | User wants human-in-the-loop approval before verdict is final |
 | `--reviewers` | User wants vertical sequential review, not horizontal debate |
 | `--no-web` | Privacy choice only the user can make |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
@@ -345,10 +352,57 @@ Parallel agents with **mandatory dissent**. Critics must counter-propose, not ju
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
-| Any question at `--max` | Adversarial convergence (iterative rounds) | `--max` always uses converse mode internally |
+| Any question at `--max` | Dissent-driven convergence (iterative rounds) | `--max` always uses converse mode internally |
 | Any question at `--set 20+` | Swarm (MECE taxonomy + environment) | Agent count >= 20 |
 | 3+ domains detected | Teams (internal deliberation, cross-challenge) | Supervisor detects domain count |
 | Forecasting question at `--set` | Prediction mode (sentiment + coalitions) | "Will X happen", "by 2028", future-tense patterns |
+
+## Ratify Mode (`--ratify`)
+
+Human-in-the-loop approval gate. After deliberation, `--ratify` adds a structurally independent audit and pauses for your review before the verdict is final.
+
+### What it does
+
+1. **Phases 0-7 run normally** — full deliberation, synthesis, validation
+2. **Auditor** — A fresh agent reviews the verdict cold. It sees ONLY the original question and the final verdict — no phase history, no agent transcripts, no deliberation dynamics. This structural independence (Lorenz et al. 2011) is stronger than the standard Phase 5 validation gate.
+3. **You review** — Verdict + auditor annotations. Three options:
+
+| Option | What Happens |
+|--------|-------------|
+| **Accept** | Verdict is final |
+| **Refine** | Your constraint is injected, Phases 3-7 re-run once, Auditor re-reviews, you get a final Accept/Reject |
+| **Reject** | Verdict discarded, full restart from Phase 0 with your feedback as anti-patterns |
+
+### When to use --ratify
+
+- **High-stakes irreversible decisions** — architecture choices, business model, security posture
+- **Before automated execution** — approve a PRD before feeding it to Ralph loop
+- **When you have context the panel doesn't** — your REFINE injects what the agents missed
+- **Accountability** — verdict metadata shows what was audited, what was flagged, what you approved
+
+### Why one revision, not a loop
+
+Research (Schulz-Hardt et al. 2006) shows the first structured revision captures the quality gain. Subsequent rounds flatten or decrease quality as decision fatigue sets in. Iterative averaging introduces correlated error (Larrick & Soll 2006). One Auditor pass + one human REFINE. Beyond that, REJECT and reframe.
+
+### The 2x2
+
+`--max` controls depth. `--ratify` controls approval. They compose orthogonally:
+
+| | Auto-accept | Human-ratified |
+|---|---|---|
+| **Quick** | `/quorum "q"` | `/quorum "q" --ratify` |
+| **Deep** | `/quorum "q" --max` | `/quorum "q" --max --ratify` |
+
+```bash
+# Quick take with human approval
+/quorum "PostgreSQL or DynamoDB?" --ratify
+
+# Full stress-test with human approval
+/quorum "Should we build or buy auth?" --max --ratify
+
+# Approve PRD before Ralph loop execution
+/quorum "Build user auth with JWT" --max --ratify
+```
 
 ## How It Works
 
@@ -360,8 +414,8 @@ graph LR
     A["Your Question"] --> B["Supervisor<br/>picks 5 SMEs"]
     B --> C1["Agent 1<br/><i>independent</i>"]
     B --> C2["Agent 2<br/><i>independent</i>"]
-    B --> C3["Agent 3<br/><i>adversarial</i>"]
-    B --> C4["Agent 4<br/><i>adversarial</i>"]
+    B --> C3["Agent 3<br/><i>dissent</i>"]
+    B --> C4["Agent 4<br/><i>dissent</i>"]
     B --> C5["Agent 5<br/><i>independent</i>"]
     C1 & C2 & C3 & C4 & C5 --> D["Triage<br/>key disagreements"]
     D --> E["Cross-Review<br/>debate pairs argue"]
@@ -383,12 +437,12 @@ graph LR
     style H fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
-1. **Setup** — Supervisor analyzes your question, picks experts with diverse perspectives. Minimum 2 adversarial
+1. **Setup** — Supervisor analyzes your question, picks experts with diverse perspectives. Minimum 2 dissent
 2. **Independent work** — All agents work in parallel, no one sees anyone else's output
 3. **Triage** — Supervisor reads all reports, drops low-value agents, identifies key disagreements
 4. **Cross-review** — Selected agents debate each other directly. Devil's Advocate challenges the majority
 5. **Synthesis** — Supervisor authors the final report with editorial judgment
-6. **Validation** — Adversarial reviewer challenges the synthesis (web fact-check preferred; same-session agent review as fallback — see [Limitations](#honest-limitations))
+6. **Validation** — Dissent reviewer challenges the synthesis (web fact-check preferred; same-session agent review as fallback — see [Limitations](#honest-limitations))
 7. **Final report** — What survived, what's disputed, what to do next
 
 ### Max Mode (7-15 agents, `--max`)
@@ -439,7 +493,7 @@ The full panel iterates across rounds until a solution survives sustained attack
 | **Synthesizer** | Reports what survived and what collapsed at checkpoints. |
 | **Judge** | Neutral arbiter. Computes convergence score. Ends when C >= 0.8 (max 6 rounds). |
 
-**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed. Must include what WOULD work. No free nihilism. The 40/60 adversarial-to-constructive ratio is calibrated: AI debate performance drops at 4+ adversarial agents from context overload (Liang et al. 2023), and authentic critics outperform assigned devil's advocates (Nemeth 2001).
+**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed. Must include what WOULD work. No free nihilism. The 40/60 dissent-to-constructive ratio is calibrated: AI debate performance drops at 4+ dissent agents from context overload (Liang et al. 2023), and authentic critics outperform assigned devil's advocates (Nemeth 2001).
 
 **Three outcomes:** CONVERGED (survived attack) / TENSION (irreducible tradeoff — user decides) / EXHAUSTED (diminishing returns).
 
@@ -470,7 +524,7 @@ graph LR
     A["'Build X' detected"] --> B["Decomposition<br/>Agent"]
     B --> C["PRD with TDD<br/><i>file paths, tasks,<br/>acceptance criteria</i>"]
     C --> D{"--max?"}
-    D -->|"Yes"| E["Adversarial<br/>Convergence"]
+    D -->|"Yes"| E["Dissent<br/>Convergence"]
     E --> F["Architect + Breaker<br/>+ TDD Enforcer<br/>+ Pragmatist + Judge"]
     F --> G{"C >= 0.8?"}
     G -->|"No"| E
@@ -497,7 +551,7 @@ graph LR
    - Bite-sized tasks (one action each, 2-5 minutes)
    - Each task: write failing test -> verify fail -> implement -> verify pass -> commit
    - Machine-verifiable acceptance criteria (not "works correctly" but "returns 200 with valid JWT containing user_id claim")
-3. **Adversarial convergence** stress-tests the PRD (only with `--max`):
+3. **Dissent-driven convergence** stress-tests the PRD (only with `--max`):
    - Architect: "Are the boundaries right? Missing abstractions?"
    - Breaker: "Which acceptance criteria are ambiguous? Edge cases?"
    - TDD Enforcer: "Is every task actually testable? Assertions specific enough?"
@@ -512,7 +566,7 @@ graph LR
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
 | PRD generation | 3-8 agents (lighter) | 7-15 agents (full decomposition) |
-| Stress-test | No adversarial review | Full convergence (5 personas, C >= 0.8) |
+| Stress-test | No dissent review | Full convergence (5 personas, C >= 0.8) |
 | Output quality | Good for small features | Production-grade for complex systems |
 
 No `--superpower` flag exists. Same capability, zero cognitive load.
@@ -557,7 +611,7 @@ graph TD
 3. **Auto-resolution** — Mechanical findings are auto-resolved using decision principles (completeness, blast radius, pragmatic, DRY, explicit over clever, bias toward action)
 4. **Final Gate** — Only taste decisions surface for your approval. Cross-phase themes are highlighted
 
-| | Default (horizontal) | --max (adversarial) | --reviewers (vertical) |
+| | Default (horizontal) | --max (dissent) | --reviewers (vertical) |
 |--|---------------------|--------------------|-----------------------|
 | Topology | Flat panel | Iterative convergence | Sequential cascade |
 | Agent relationship | Peers debate | Attackers vs defenders | Each builds on previous |
@@ -581,7 +635,7 @@ The single best improvement: **always include `--artifact` pointing to your desi
 | Source Grading | Every finding rated STRONG / MODERATE / WEAK / UNVERIFIED |
 | Contradiction Check | Catches when agents disagree AND when they agree without evidence |
 | Hallucination Red Flags | Supervisor checklist for fabricated stats, fake citations, too-clean numbers |
-| Adversarial Validation | Reviewer challenges the synthesis (web search preferred, subagent with fresh context, or same-session agent review as fallback) |
+| Dissent Validation | Reviewer challenges the synthesis (web search preferred, subagent with fresh context, or same-session agent review as fallback) |
 | Transparent Output | Report shows what's verified, what's unresolved, what couldn't be checked |
 
 **The rule: If it can't be sourced, it gets flagged. If it can't be verified, it says so. If agents disagree, both sides are shown. You decide — not the AI.**
@@ -596,7 +650,7 @@ When you give an AI a project profile and a classification gate, it starts only 
 2. **Classification gate scores the question, not the project.** A business question in a research repo gets business agents
 3. **Condition-based outsider injection.** High consensus with low challenge -> inject a lateral thinker
 4. **Exploratory queries invert the profile.** "What am I missing?" spawns from domains the profile doesn't list
-5. **Adversarial agents are immune to pruning.** Devil's Advocate and Provocateur can never be killed by efficiency rules
+5. **Dissent agents are immune to pruning.** Devil's Advocate and Provocateur can never be killed by efficiency rules
 6. **Inverted early termination.** When everyone agrees, scrutiny goes UP. Unanimous consensus is the highest-risk scenario
 
 ## The Science
@@ -607,9 +661,9 @@ That's the finding. Not an opinion. A measured result from 699 people solving br
 
 What did predict it: **equal conversational turn-taking.** Groups where everyone contributed roughly equally were measurably smarter than groups dominated by one person.
 
-That's why Quorum defaults to 5 agents with mandatory equal participation. Not because 5 is a round number. Because it's the research-backed ceiling where every agent can still contribute equally. At 7, conversational inequality becomes unavoidable (Dunbar's synchronous layer). 3-agent AI debate already outperforms single-agent output (Du et al. 2023). Adding a supervisor + adversarial agent to reach 5 optimizes the diversity-coherence tradeoff.
+That's why Quorum defaults to 5 agents with mandatory equal participation. Not because 5 is a round number. Because it's the research-backed ceiling where every agent can still contribute equally. At 7, conversational inequality becomes unavoidable (Dunbar's synchronous layer). 3-agent AI debate already outperforms single-agent output (Du et al. 2023). Adding a supervisor + dissent agent to reach 5 optimizes the diversity-coherence tradeoff.
 
-**One dissenter cuts groupthink by 85%.** A single person who disagrees drops conformity from 32% to 5% (Asch 1951). That's why Quorum's adversarial minimum is 2, not 1.
+**One dissenter cuts groupthink by 85%.** A single person who disagrees drops conformity from 32% to 5% (Asch 1951). That's why Quorum's dissent minimum is 2, not 1.
 
 **One dissenter is dismissed as eccentric. Two establish a pattern.** A lone critic gets ignored. Two critics with the same position create a credible minority that the majority can't dismiss (Moscovici 1969). That's why 2 is the minimum, not the maximum.
 
@@ -643,7 +697,7 @@ Swarm reports add:
 
 Quorum is a reasoning quality tool, not a magic truth machine.
 
-1. **The validation gate is not truly independent.** Even mild social influence narrows group diversity (Lorenz et al. 2011). The adversarial reviewer uses a separate agent in the same Claude session. That's prompt-level independence, not structural independence. Web search fact-checking provides genuinely independent evidence. Agent review provides useful but limited adversarial pressure. Neither substitutes for human review.
+1. **The validation gate is not truly independent.** Even mild social influence narrows group diversity (Lorenz et al. 2011). The dissent reviewer uses a separate agent in the same Claude session. That's prompt-level independence, not structural independence. Web search fact-checking provides genuinely independent evidence. Agent review provides useful but limited dissent pressure. Neither substitutes for human review.
 
 2. **The environment server is simulated.** Swarm mode's Environment Server and Pattern Detection are prompt-orchestrated, not a persistent runtime service. The quality of pattern detection depends on summarization quality, not a dedicated algorithm. True O(patterns) scaling is a design goal, not a current guarantee.
 
@@ -661,7 +715,7 @@ Every transformer output is a probability sample, not a fact lookup (Vaswani et 
 
 Biological brains do the same thing. They reconstruct memories from statistical patterns rather than retrieving stored records (Bartlett 1932, Schacter 1999, Loftus & Palmer 1974). McCulloch & Pitts (1943) modeled artificial neural networks on exactly this mechanism. Both systems fill gaps with plausible guesses. The difference is that we built the LLM, so we can study the mechanism.
 
-Quorum's 5-layer validation pipeline, adversarial agents, and evidence audits reduce hallucination. They make it *visible*. They do not eliminate it. Every Quorum report is a starting point for human judgment, not a replacement for it.
+Quorum's 5-layer validation pipeline, dissent agents, and evidence audits reduce hallucination. They make it *visible*. They do not eliminate it. Every Quorum report is a starting point for human judgment, not a replacement for it.
 
 **[Full scientific explanation with citations ->](docs/SAFETY.md#0-on-hallucination-why-no-llm-is-hallucination-proof)**
 
@@ -678,7 +732,7 @@ Convergence formula with weight rationale. Bias detection (anchoring, base-rate 
 Sequential review pipeline (`--reviewers`). Dynamic persona assembly per topic. Mechanical/taste finding classification. Auto-resolution with decision principles. Converse mode prompts documented.
 
 ### v5.2.0 — Converse Mode (2026-03-22)
-Research-backed iterative adversarial convergence. 5-7 agents, 40/60 adversarial ratio, 10 peer-reviewed citations. Adversarial minimum raised from 1->2 for all swarm sizes >=5 (Moscovici 1969). Validation gate honesty disclosure. Swarm O(patterns) honesty disclosure.
+Research-backed iterative dissent-driven convergence. 5-7 agents, 40/60 dissent ratio, 10 peer-reviewed citations. Dissent minimum raised from 1->2 for all swarm sizes >=5 (Moscovici 1969). Validation gate honesty disclosure. Swarm O(patterns) honesty disclosure.
 
 ### v5.1.0 — Outcome Predictor (2026-03-22)
 Outcome Ledger, Calibrate mode, Monitor mode, Structured Seed Data, Visualization Export, Temporal Simulation.

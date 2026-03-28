@@ -148,6 +148,8 @@ Tier 1 (Supervisor): [Reads all positions, Socrates' questions, Plato's audit]
 | Need a battle-tested solution | `/quorum "question" --converse` | 5 agents iterate, critics must counter-propose |
 | Stress-test before building | `/quorum "question" --converse --full` | 7 agents, Judge decides rounds, historian + survivor |
 | Fact-check prior research | `/quorum "validate" --artifact report.md --rigor high` | Validation workflow |
+| High-stakes irreversible decision | `/quorum "question" --ratify` | Human sign-off before finalization |
+| Pre-automation approval (Ralph loop) | `/quorum "Build X" --max --ratify` | Approve PRD before automated execution |
 | Bias-free production testing | Subagent with self-contained prompt | Subagent validation (fresh context) |
 
 ---
@@ -212,9 +214,9 @@ A flat swarm is a single panel of experts debating in parallel. No hierarchy, no
 /quorum "Is this API design RESTful enough?" --artifact api-spec.yaml --lite
 ```
 
-### Mandatory adversarial agents (scales with size)
+### Mandatory dissent agents (scales with size)
 
-| Swarm Size | Adversarial Agents | Research Basis |
+| Swarm Size | Dissent Agents | Research Basis |
 |---|---|---|
 | 3 (minimum) | Devil's Advocate (1) | Asch (1951): single dissenter reduces conformity 32%→5% |
 | 5-8 | Devil's Advocate + Naive User (2) | Moscovici (1969): minority of 2 establishes credible pattern |
@@ -341,7 +343,7 @@ Each team gets:
 - At least 1 member with a contrarian stance (internal devil's advocate)
 
 The org must include:
-- At least 1 adversarial team (their job is to challenge)
+- At least 1 dissent team (their job is to challenge)
 - No team with more than 40% of total agents
 - Teams with genuinely different success metrics
 
@@ -391,7 +393,7 @@ Instead of 8 agents giving 8 opinions, two agents spend 4 rounds drilling into: 
 
 ## Converse Mode (`--converse`)
 
-Not parallel analysis. Not Socratic dialogue. An **iterative adversarial convergence** — the full panel stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on what survives.
+Not parallel analysis. Not Socratic dialogue. An **iterative dissent-driven convergence** — the full panel stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on what survives.
 
 ### When to use converse
 
@@ -413,7 +415,7 @@ Not parallel analysis. Not Socratic dialogue. An **iterative adversarial converg
 
 ### The research behind the ratio
 
-The 40% adversarial / 60% constructive ratio isn't arbitrary. It's derived from convergent findings across jury deliberation (Nemeth 1977), adversarial collaboration (Kahneman 2003), multi-agent AI debate (Du et al. 2023, Liang et al. 2023), and devil's advocate research (Schweiger et al. 1986). The critical insight from Nemeth (2001): **assigned contrarianism makes people MORE entrenched, not less.** Converse mode critics hold authentic positions and must propose alternatives — the Schweiger finding that counter-plans beat pure critique by 34%.
+The 40% dissent / 60% constructive ratio isn't arbitrary. It's derived from convergent findings across jury deliberation (Nemeth 1977), dissent collaboration (Kahneman 2003), multi-agent AI debate (Du et al. 2023, Liang et al. 2023), and devil's advocate research (Schweiger et al. 1986). The critical insight from Nemeth (2001): **assigned contrarianism makes people MORE entrenched, not less.** Converse mode critics hold authentic positions and must propose alternatives — the Schweiger finding that counter-plans beat pure critique by 34%.
 
 ### The five roles
 
@@ -558,7 +560,7 @@ This is the difference between:
 |----------|--------------|-----|
 | Validating a build/deploy/release | Yes | Fresh context catches what anchored context misses |
 | Fact-checking research output | Yes | Reviewer should not know which facts the researcher "wants" to be true |
-| Adversarial testing / red team | Yes | Attacker should not know the defenses |
+| Dissent testing / red team | Yes | Attacker should not know the defenses |
 | Testing code changes | Yes | Tester should not know which tests "should" pass |
 | Quick opinion on a design choice | No | Overhead not worth it for lightweight decisions |
 | Reviewing an artifact already in context | No | Main session already has the file loaded |
@@ -666,6 +668,63 @@ Modes compose. Stack them for maximum rigor.
 
 ---
 
+## Human Ratification (`--ratify`)
+
+`--ratify` adds a human-approval gate to any Quorum session. After the panel deliberates and the supervisor drafts a verdict, the session pauses for your sign-off before finalizing. An auditor pass reviews the verdict for internal consistency, unsupported leaps, and missed dissent — then you approve, reject, or send it back for another round.
+
+`--ratify` is orthogonal to depth. It controls **who has final say**, not how many agents run:
+
+| Depth | Without `--ratify` | With `--ratify` |
+|-------|-------------------|-----------------|
+| `--lite` | 3 agents, supervisor decides | 3 agents, supervisor drafts, auditor reviews, you decide |
+| Default | 5 agents, supervisor decides | 5 agents, supervisor drafts, auditor reviews, you decide |
+| `--full` | 8 agents, supervisor decides | 8 agents, supervisor drafts, auditor reviews, you decide |
+| `--max` | Full org, supervisor decides | Full org, supervisor drafts, auditor reviews, you decide |
+
+### When to Use `--ratify`
+
+**Use it for:**
+- High-stakes irreversible decisions (architecture, vendor lock-in, public commitments)
+- Before automated execution — approve the PRD before a Ralph loop builds it
+- When you have context the panel doesn't (business constraints, political dynamics, timeline pressure)
+- Accountability requirements — when you need a human-in-the-loop audit trail
+
+**Skip it for:**
+- Quick brainstorming and exploration
+- Low-stakes questions where the panel's judgment is sufficient
+- Time-sensitive decisions where the ~1.7x token cost isn't justified
+- Research and validation workflows (the panel is already checking itself)
+
+### Examples
+
+```bash
+# High-stakes architecture decision
+/quorum "Monolith or microservices for our payment system?" --max --ratify
+
+# Approve PRD before Ralph loop
+/quorum "Build the LiDAR detection pipeline" --max --ratify
+
+# Quick decision with sign-off
+/quorum "Should we add Redis caching?" --ratify
+
+# Ship decision with human gate
+/quorum "Should we ship v2.0 this week?" --teams "engineering,legal,product" --ratify
+```
+
+### Cost Guidance
+
+| Combination | Token Multiplier | When It's Worth It |
+|-------------|------------------|--------------------|
+| `--ratify` alone | ~1.7x base (auditor pass + potential re-run) | Irreversible decisions, pre-automation approval |
+| `--max --ratify` | ~2.4x base | Maximum depth + human gate — bet-the-company decisions |
+| `--lite --ratify` | ~1.7x of lite (~85K) | Quick question but you want sign-off |
+
+The auditor pass adds cost because it reviews the full verdict for consistency, checks that dissent was addressed, and may trigger a re-run if the verdict doesn't hold up. A re-run (when the auditor finds issues) roughly doubles the cost of the deliberation phase. Most sessions don't trigger a re-run.
+
+**Rule of thumb:** If the decision is reversible in under a week, skip `--ratify`. If it's not, the token cost is trivial compared to the cost of getting it wrong.
+
+---
+
 ## Cost and Performance Guide
 
 | Mode | Agents | Tokens | Time | Best For |
@@ -679,6 +738,8 @@ Modes compose. Stack them for maximum rigor.
 | `--org` (3 teams) | 17 | ~400-600K | 5-10 min | Cross-domain complexity |
 | `--org` (4 teams) | 22 | ~500-800K | 8-12 min | Large-scale validation |
 | Two-stage validation | 8 + 5 | ~480K total | 8-10 min | Research + fact-check |
+| Any mode + `--ratify` | Same | ~1.7x base | +1-2 min | Human-gated decisions |
+| `--max --ratify` | Full org | ~2.4x base | +2-3 min | Maximum depth + human approval |
 
 ---
 
@@ -767,7 +828,7 @@ Every session automatically logs testable claims to `_swarm/ledger.json`:
 Quorum shows each pending claim and asks: CORRECT, INCORRECT, PARTIALLY_CORRECT, UNKNOWN, or SKIP. Then computes:
 
 - **Overall calibration** — when Quorum says HIGH, how often is it right?
-- **Per persona type** — are Technical agents more accurate than Adversarial?
+- **Per persona type** — are Technical agents more accurate than Dissent?
 - **Per mode** — is review mode more reliable than research mode?
 - **Per rigor** — does high rigor actually produce better outcomes?
 

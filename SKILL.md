@@ -1,9 +1,9 @@
 ---
 name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
-argument-hint: '"your question" [--max] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run]'
+argument-hint: '"your question" [--max] [--ratify] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run]'
 disable-model-invocation: false
-version: 7.0.0
+version: 7.1.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -30,7 +30,7 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs on GitHub](https://gith
 | Command | What Happens | Agents |
 |---------|-------------|--------|
 | `/quorum "question"` | 5 SMEs debate, supervisor synthesizes | 5 (research-backed default) |
-| `/quorum "question" --max` | Full adversarial convergence, teams if needed | 7-15 (supervisor decides) |
+| `/quorum "question" --max` | Full dissent-driven convergence, teams if needed | 7-15 (supervisor decides) |
 | `/quorum "question" --reviewers` | Top-down sequential review pipeline, auto-decide, surface taste calls only | 3-5 phases (topic-driven) |
 | `/quorum "question" --set 200` | Custom scale — swarm auto-engages at 20+ | User-defined |
 
@@ -40,24 +40,25 @@ That's it. The supervisor handles everything else: mode, structure, rigor, resea
 
 | Tier | Agents | Research Basis |
 |------|--------|---------------|
-| Default | 5 | Woolley et al. 2010 (collective intelligence peaks with equal conversational turns in small groups); Du et al. 2023 (3-agent AI debate optimum + supervisor + adversarial = 5) |
+| Default | 5 | Woolley et al. 2010 (collective intelligence peaks with equal conversational turns in small groups); Du et al. 2023 (3-agent AI debate optimum + supervisor + dissent = 5) |
 | Max | 7-15 | 7 = synchronous ceiling before conversational inequality (Dunbar layer 1); 15 = Delphi panel optimum for heterogeneous experts (Linstone & Turoff 2002) |
 | Set N | User-defined | At 20+, swarm architecture auto-engages: MECE taxonomy partitioning, environment-based coordination, pattern detection |
 
-### Mandatory Adversarial Minimum: 2
+### Mandatory Dissent Minimum: 2
 
-Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
+Every panel of 5+ agents includes at least 2 dissent agents. Not 1.
 
 - Asch (1951): A single dissenter reduces conformity from 32% to 5%
 - Moscovici (1969): A minority of 2 establishes a credible pattern — 1 is dismissed as eccentric
 - Nemeth (2001): Assigned devil's advocacy makes people MORE entrenched. Critics must hold authentic positions with counter-proposals
 - Schweiger (1986): Critics who propose counter-plans produce 34% higher decision quality than critics who only attack
 
-## Only 4 Optional Flags
+## Only 6 Optional Flags
 
 | Flag | Why It Can't Be Auto-Detected |
 |------|-------------------------------|
 | `--artifact PATH` | Supervisor can't know which file you mean |
+| `--ratify` | User wants human-in-the-loop approval before verdict is final |
 | `--reviewers` | User wants vertical sequential review, not horizontal debate |
 | `--no-web` | Privacy choice only the user can make |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
@@ -72,7 +73,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
-| Any question at `--max` | Adversarial convergence (converse internally) | `--max` always uses iterative rounds |
+| Any question at `--max` | Dissent-driven convergence (converse internally) | `--max` always uses iterative rounds |
 | Any question at `--set 20+` | Swarm (MECE taxonomy + environment) | Agent count ≥ 20 |
 | 3+ domains detected | Teams (internal deliberation, cross-challenge) | Supervisor detects domain count in Phase 0.5 |
 | Forecasting question at `--set` | Prediction mode (sentiment + coalitions) | "Will X happen", "by 2028", future-tense patterns |
@@ -83,7 +84,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 # Quick opinion — 5 agents, done in 2 minutes
 /quorum "Should we use PostgreSQL or DynamoDB for our new service?"
 
-# Stress-test a decision — full adversarial convergence
+# Stress-test a decision — full dissent-driven convergence
 /quorum "Should we build or buy our auth system?" --max
 
 # Build something — auto-detects superpower mode, generates battle-tested PRD
@@ -127,7 +128,7 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
    - Bite-sized tasks (one action each, 2-5 minutes)
    - Each task: write failing test → verify fail → implement → verify pass → commit
    - Machine-verifiable acceptance criteria (not "works correctly" but "returns 200 with valid JWT containing user_id claim")
-3. **Adversarial convergence** stress-tests the PRD (only with `--max`):
+3. **Dissent-driven convergence** stress-tests the PRD (only with `--max`):
    - Architect: "Are the boundaries right? Missing abstractions?"
    - Breaker: "Which acceptance criteria are ambiguous? Edge cases?"
    - TDD Enforcer: "Is every task actually testable? Assertions specific enough?"
@@ -150,7 +151,7 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
 | PRD generation | 5 agents (lighter) | 7-15 agents (full decomposition) |
-| Stress-test | No adversarial review | Full convergence (Architect + Breaker + TDD Enforcer + Pragmatist + Judge) |
+| Stress-test | No dissent review | Full convergence (Architect + Breaker + TDD Enforcer + Pragmatist + Judge) |
 | Output quality | Good for small features | Battle-tested for production systems |
 
 **Trigger keywords:** `build`, `implement`, `create`, `add feature`, `scaffold`, `write a`, `set up` — anything that signals "I want code output, not analysis."
@@ -257,7 +258,7 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 
 ### --reviewers vs Default vs --max
 
-| | Default (horizontal) | --max (adversarial) | --reviewers (vertical) |
+| | Default (horizontal) | --max (dissent) | --reviewers (vertical) |
 |--|---------------------|--------------------|-----------------------|
 | Topology | Flat panel | Iterative convergence | Sequential cascade |
 | Agent relationship | Peers debate | Attackers vs defenders | Each builds on previous |
@@ -281,23 +282,75 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 /quorum "Review this microservices migration plan" --reviewers --artifact migration-plan.md
 ```
 
+## Ratify Mode (--ratify)
+
+Human-in-the-loop approval gate. After the panel deliberates and produces a verdict, `--ratify` pauses for your review before the verdict is final. Composes with any tier.
+
+```bash
+# Review before acting on a high-stakes decision
+/quorum "Should we open-source ClawFish's core engine?" --max --ratify
+
+# Approve a PRD before feeding it to Ralph loop
+/quorum "Build the obstacle detection pipeline for Spot" --max --ratify
+```
+
+### How --ratify Works
+
+1. **Phases 0-7 run normally** (deliberation, synthesis, validation)
+2. **Auditor pass** — A structurally independent agent reviews the verdict cold. It sees ONLY the original question and the final verdict — no phase history, no agent transcripts, no deliberation dynamics. Evaluates: logical coherence, evidence sufficiency, scope completeness, internal consistency, actionability. Outputs specific findings or confirms the verdict holds.
+3. **Human review** — You see the verdict + auditor annotations. Three options:
+
+```
+  [a] Accept   — verdict is final
+  [r] Refine   — inject a constraint, re-run Phase 3-7 (one revision)
+  [x] Reject   — discard verdict, restart from Phase 0
+```
+
+4. **If you Refine** — Your constraint is injected as authoritative input. Phases 3-7 re-run once. The Auditor re-reviews. You get one final ACCEPT or REJECT. No further refinements — if it's still wrong, REJECT and reframe the question.
+
+### Why One Auditor Pass, Not a Loop
+
+Research (Schulz-Hardt et al. 2006): first structured revision captures the quality gain. Subsequent rounds show flat or negative returns. Iterative averaging introduces correlated error (Larrick & Soll 2006). The Auditor gets one shot. The human gets one refinement. Beyond that, the issue is upstream — re-deliberate with a better question.
+
+### Composability (2x2)
+
+| | Auto-accept | Human-ratified |
+|---|---|---|
+| **Quick (1 round)** | `/quorum "q"` | `/quorum "q" --ratify` |
+| **Deep (multi-round)** | `/quorum "q" --max` | `/quorum "q" --max --ratify` |
+
+`--max` controls how hard agents think. `--ratify` controls whether a human approves. Independent axes.
+
+### Auditor Structural Independence
+
+The Auditor is isolated from the panel's deliberation to prevent anchoring (Lorenz et al. 2011). It evaluates the verdict against the original question — not against the panel's internal reasoning. This is stronger than the Phase 5 validation gate (which operates within the same session context).
+
+### Token Cost
+
+| Config | Median | Multiplier vs base |
+|--------|--------|--------------------|
+| Base (no flags) | ~60K | 1.0x |
+| `--ratify` | ~100K | 1.7x |
+| `--max` | ~100K | 1.7x |
+| `--max --ratify` | ~145K | 2.4x |
+
 ## How It Works
 
 ### Default (5 agents)
 
-1. **Setup** — Supervisor analyzes the question, picks 5 SMEs with diverse perspectives. Minimum 2 adversarial.
+1. **Setup** — Supervisor analyzes the question, picks 5 SMEs with diverse perspectives. Minimum 2 dissent.
 2. **Independent work** — All agents work in parallel. No one sees anyone else's output.
 3. **Triage** — Supervisor reads all reports, identifies key disagreements.
 4. **Cross-review** — Debate pairs argue. Devil's Advocate challenges the majority. Critics must counter-propose, not just attack.
 5. **Synthesis** — Supervisor authors the verdict with editorial judgment. Reasoning quality over vote counts.
-6. **Validation** — Web fact-check (preferred) or adversarial agent review.
+6. **Validation** — Web fact-check (preferred) or dissent agent review.
 7. **Final report** — What survived, what's disputed, what to do next.
 
 ### Max (7-15 agents, supervisor decides)
 
-`--max` always runs **adversarial convergence** — the full panel iterates across rounds until a solution survives sustained attack. The supervisor also auto-selects the right structure:
+`--max` always runs **dissent-driven convergence** — the full panel iterates across rounds until a solution survives sustained attack. The supervisor also auto-selects the right structure:
 
-**Adversarial convergence (always at --max):**
+**Dissent-driven convergence (always at --max):**
 
 | Role | What They Do |
 |------|-------------|
@@ -307,7 +360,7 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 | **Synthesizer** | Reports what survived and what collapsed at checkpoints. |
 | **Judge** | Neutral arbiter. Computes convergence score. Ends when C ≥ 0.8 (max 6 rounds). |
 
-**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed — must include what WOULD work. No free nihilism. 40/60 adversarial ratio (Nemeth 2001, Liang 2023).
+**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed — must include what WOULD work. No free nihilism. 40/60 dissent ratio (Nemeth 2001, Liang 2023).
 
 **Three outcomes:** CONVERGED (survived attack) / TENSION (irreducible tradeoff — user decides) / EXHAUSTED (diminishing returns).
 
@@ -422,7 +475,7 @@ I < 0.4  → LOW → trigger: supervisor re-examines whether agents were given e
 1. **Source Grading** — STRONG / MODERATE / WEAK / UNVERIFIED
 2. **Contradiction Check** — catches agents agreeing without evidence
 3. **Hallucination Red Flags** — fabricated citations, too-clean stats, universal claims
-4. **Adversarial Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
+4. **Dissent Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
 5. **Transparency** — Evidence Scorecard + Independence Score + Bias Flags in every report
 
 ## Anti-Boxing (6 Rules)
@@ -431,7 +484,7 @@ I < 0.4  → LOW → trigger: supervisor re-examines whether agents were given e
 2. **Classification scores the question, not the project.** Business question in a research repo gets business agents.
 3. **Condition-based outsider injection.** High consensus + low challenge → inject lateral thinker.
 4. **Exploratory queries invert the profile.** "What am I missing?" spawns from domains the profile doesn't list.
-5. **Adversarial agents are immune to pruning.** Devil's Advocate and Provocateur always survive.
+5. **Dissent agents are immune to pruning.** Devil's Advocate and Provocateur always survive.
 6. **Inverted early termination.** Unanimous consensus = highest-risk scenario. Scrutiny goes UP.
 
 ## Safety
