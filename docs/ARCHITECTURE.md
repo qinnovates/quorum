@@ -260,6 +260,74 @@ The supervisor does not just compile -- they **author** the synthesis with execu
 - **Priority actions** (ranked by impact, not by how many agents mentioned them)
 - **Confidence scores** per finding, assessed by the supervisor -- not averaged from agent self-reports
 
+### Phase 4.5: Research Drift Detection & Auto-Correction
+
+**Before the synthesis is finalized, the supervisor runs the Drift Diff.** This is NOT a post-hoc validation layer — it is an integral part of the supervisor's authoring process. The supervisor detects drift and auto-corrects before the verdict reaches the user.
+
+**Step 1: Claim Pool Extraction**
+
+During Phase 2 (triage), the supervisor already catalogs all Phase 1 findings. At Phase 4.5, the supervisor builds a claim pool:
+
+```
+claim_pool = {
+  claim_id: {
+    text: "exact claim",
+    source: "DOI/URL/agent_reasoning/unsourced",
+    agent: "which agent produced it",
+    phase: 1,  // when it first appeared
+    direction: "positive/negative/neutral"  // finding direction
+  }
+}
+```
+
+**Step 2: Diff Against Synthesis Draft**
+
+The supervisor compares every claim in the Phase 4 synthesis draft against the claim pool:
+
+```
+For each claim in synthesis:
+  MATCH in pool with source       → SOURCED (no action)
+  MATCH in pool without source    → UNSOURCED (flag in Evidence Scorecard)
+  NOT in pool, has source         → EXPANDED (verify source, then include)
+  NOT in pool, no source          → DRIFT (auto-correct: see below)
+  In pool but direction flipped   → INVERTED (auto-correct: see below)
+```
+
+**Step 3: Supervisor Auto-Correction**
+
+The supervisor does NOT pass drift to the user as-is. It resolves what it can:
+
+| Finding | Supervisor Action | If Unresolvable |
+|---------|------------------|-----------------|
+| **DRIFT** (unsourced new claim) | 1. Attempt to source via web search. 2. If sourced → reclassify as EXPANDED. 3. If unsourceable → remove from synthesis OR downgrade to "unverified estimate" with explicit label | Present in Drift Diff as UNRESOLVED with reason: "Claim appeared in [agent]'s [phase] output without source. Could not verify. Included as unverified / Removed." |
+| **INVERTED** (direction flipped) | 1. Re-read the original source claim and the synthesis claim. 2. Correct the synthesis to match the source direction. 3. If the inversion was intentional (agent argued against the source with counter-evidence) → preserve both positions in disagreement register | Present in Drift Diff as CORRECTED (showing before/after) or CONTESTED (showing both positions with evidence) |
+| **EXPANDED** (sourced new claim) | Verify the cited source exists (web search or DOI check if available). If verified → include. If unverifiable → reclassify as DRIFT and apply DRIFT rules | Noted in Drift Diff as EXPANDED for user awareness |
+
+**Step 4: Resolved Drift Diff in Verdict**
+
+The user sees a Drift Diff that shows what the supervisor already handled:
+
+```
+RESEARCH DRIFT DIFF — Phase 1 → Phase 4
+
+Auto-corrected by supervisor:
+  [D-001] DRIFT → REMOVED: "Most teams adopt within 6 months"
+          Reason: unsourced, web search returned no supporting data
+  [D-002] INVERTED → CORRECTED: "adds ~50ms latency" was written as
+          "reduces latency by 50ms". Corrected to match source.
+  [D-003] DRIFT → SOURCED: "Event sourcing reduces audit complexity"
+          Supervisor found: Fowler (2005) via web search. Reclassified.
+
+Unresolved (requires user validation):
+  [D-004] EXPANDED: "Migration cost bounded to 3 days"
+          Source: Architect agent estimate (not externally sourced)
+          Supervisor note: reasonable but unverified. Included as estimate.
+
+Drift summary: 4 findings, 3 auto-corrected, 1 requires validation
+```
+
+**The supervisor is the first line of defense, not the user.** The user sees what the supervisor couldn't resolve — not the full list of every claim that drifted. This keeps the user's review focused on genuine judgment calls, not mechanical verification the supervisor already handled.
+
 ---
 
 ## Phase 5: Validation Gate
@@ -880,64 +948,23 @@ Before writing the synthesis, the supervisor runs this checklist on every key fi
 | Claim that perfectly supports the majority position | Confirmation bias, not evidence | Flag for extra scrutiny |
 | Technical detail outside the agent's assigned domain | Cross-domain hallucination | Verify or remove |
 
-### Layer 3.5: Research Drift Diff (Phase 2→4 transition)
+### Layer 3.5: Research Drift Diff (Supervisor-Integrated, Phase 4.5)
 
-When agents expand on research across phases, new claims can enter the synthesis that weren't in the original source material. The Drift Diff tracks what was ADDED between phases and flags it for validation.
+The Drift Diff is not a passive validation layer — it is integrated into the supervisor's authoring process at Phase 4.5. The supervisor detects drift, auto-corrects what it can, and presents only unresolvable findings to the user.
 
-**How it works:**
+**Full specification:** See [Phase 4.5: Research Drift Detection & Auto-Correction](#phase-45-research-drift-detection--auto-correction) above.
 
-1. **Claim extraction:** After Phase 1, the supervisor extracts all factual claims from each agent's output. Each claim is tagged with its source (DOI, URL, "agent reasoning", or "unsourced").
+**Summary of supervisor auto-correction:**
 
-2. **Diff calculation at Phase 4:** After the supervisor drafts the synthesis, every claim in the synthesis is compared against the Phase 1 claim pool:
+| Finding | Supervisor Auto-Corrects | User Sees |
+|---------|-------------------------|-----------|
+| DRIFT (unsourced new claim) | Web search for source → if found: reclassify as EXPANDED. If not: remove or label "unverified" | Only unresolved items |
+| INVERTED (direction flipped) | Correct synthesis to match source. If intentional disagreement: preserve both in disagreement register | Corrected items (before/after) + contested items |
+| EXPANDED (sourced new claim) | Verify source exists (DOI/web check). If unverifiable: reclassify as DRIFT | Noted for awareness |
 
-```
-For each claim in synthesis:
-  if claim exists in Phase 1 pool with source → SOURCED (no drift)
-  if claim exists in Phase 1 pool without source → UNSOURCED (existing risk)
-  if claim is NEW (not in Phase 1 pool) → DRIFT CANDIDATE
-    if new claim has a source → EXPANDED (agent found something in cross-review)
-    if new claim has no source → DRIFT (unsourced expansion — highest risk)
-```
+**The user's Drift Diff shows resolved corrections AND unresolved items** — not the raw list of every drift candidate. The supervisor is the first line of defense.
 
-3. **Drift Diff output:** All DRIFT and EXPANDED claims are collected into a structured diff:
-
-```
-RESEARCH DRIFT DIFF — Phase 1 → Phase 4
-
-EXPANDED (new claims with sources): 3
-  [D-001] "Event sourcing reduces audit complexity by 40%"
-          Source: Architect agent citing Fowler (2005)
-          Status: VERIFY — new claim not in original research pool
-
-DRIFT (new claims without sources): 2
-  [D-002] "Most teams adopt event sourcing within 6 months"
-          Source: none — appeared in Synthesizer's summary
-          Status: FLAG — unsourced expansion, likely hallucinated
-  [D-003] "Migration cost is bounded to 3 days"
-          Source: none — appeared in Realist's round 2 response
-          Status: FLAG — unsourced estimate, needs validation
-
-INVERTED (claim direction changed from source): 1
-  [D-004] Phase 1: "Redis caching adds ~50ms latency" (Agent 2, citing benchmark)
-          Phase 4: "Redis caching reduces latency by 50ms"
-          Status: CRITICAL — finding direction inverted
-```
-
-4. **Validation gate:** The Drift Diff is presented to the user in the final verdict. DRIFT and INVERTED findings are mandatory review items — the supervisor cannot silently incorporate them into the synthesis.
-
-**When the Drift Diff blocks delivery:**
-
-| Finding Type | Action |
-|-------------|--------|
-| EXPANDED (sourced) | Included in synthesis, noted in diff for user awareness |
-| DRIFT (unsourced) | Flagged in verdict. Supervisor must either: find a source via web search, downgrade to "unverified claim", or remove from synthesis |
-| INVERTED (direction changed) | **Blocks delivery.** Supervisor must resolve before presenting verdict. The claim is either corrected to match the source or explicitly flagged as a supervisor judgment call with reasoning |
-
-**Why this matters:**
-
-The most dangerous hallucination pattern is a real DOI grafted onto fabricated metadata with an inverted finding direction. It passes superficial citation checks because the DOI resolves, but the actual claim is the opposite of what the paper says. The Drift Diff catches this by comparing claim direction, not just claim existence.
-
-This is the same failure mode documented in the QIF research protocol (2026-03-17 incident: "Mota et al. 2023" with a valid DOI but inverted finding). The Drift Diff applies that lesson to all Quorum research output.
+**Why this matters:** The most dangerous hallucination pattern is a real DOI grafted onto fabricated metadata with an inverted finding direction. It passes superficial citation checks because the DOI resolves, but the actual claim is the opposite of what the paper says. The Drift Diff catches this by comparing claim direction, not just claim existence. Based on the QIF research protocol incident (2026-03-17).
 
 ### Layer 4: Independent Validation (Phase 5)
 

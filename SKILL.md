@@ -454,30 +454,38 @@ Hallucination Risk: MEDIUM (17% unsourced)
 
 The scorecard is computed, not estimated. The supervisor counts every claim in the synthesis, traces each to a source (or marks it unsourced), and computes the percentages. This is math, not judgment.
 
-### Research Drift Diff (All Modes)
+### Research Drift Diff (All Modes — Supervisor-Integrated)
 
-Tracks claims that were ADDED between Phase 1 (independent work) and Phase 4 (synthesis). New claims that weren't in any agent's original research are the highest hallucination risk — they appeared during cross-review or synthesis without a source trail.
+The supervisor runs drift detection as part of Phase 4 synthesis, not as a post-hoc check. It auto-corrects what it can and presents only unresolved findings to the user.
+
+**How it works:**
+
+1. **Phase 2:** Supervisor builds a claim pool from all Phase 1 agent outputs (claim text + source + finding direction)
+2. **Phase 4.5:** After drafting the synthesis, supervisor diffs every claim against the pool
+3. **Auto-correction:** Supervisor resolves drift before the verdict ships:
+   - DRIFT (unsourced) → web search for source. If found: reclassify. If not: remove or label "unverified"
+   - INVERTED (direction flipped) → correct synthesis to match source. If intentional disagreement: preserve both in disagreement register
+   - EXPANDED (sourced) → verify source exists. If unverifiable: reclassify as DRIFT
+4. **Resolved diff in verdict:** User sees what was auto-corrected AND what remains unresolved
 
 ```
 RESEARCH DRIFT DIFF — Phase 1 → Phase 4
 
-EXPANDED (new claims with sources):  2
-  [D-001] "Event sourcing reduces audit complexity by 40%" — Fowler (2005)
+Auto-corrected by supervisor:
+  [D-001] DRIFT → REMOVED: "Most teams adopt within 6 months"
+          Reason: unsourced, web search found no supporting data
+  [D-002] INVERTED → CORRECTED: "adds latency" was written as "reduces latency"
+          Corrected to match source direction
 
-DRIFT (new claims, no source):       1  ← FLAGGED
-  [D-002] "Most teams adopt within 6 months" — unsourced expansion
+Unresolved (requires user validation):
+  [D-003] EXPANDED: "Migration cost bounded to 3 days"
+          Source: Architect agent estimate (not externally sourced)
+          Supervisor note: reasonable but unverified. Included as estimate.
 
-INVERTED (finding direction changed): 0
-
-Drift Risk: LOW (1 unsourced expansion, 0 inversions)
+Drift summary: 3 findings, 2 auto-corrected, 1 requires validation
 ```
 
-**Classification:**
-- **EXPANDED** — new claim appeared with a source. Included in synthesis, noted in diff for user awareness
-- **DRIFT** — new claim appeared without a source. Flagged in verdict. Supervisor must source it, mark it unverified, or remove it
-- **INVERTED** — a claim's conclusion flipped from what the source says. **Blocks delivery.** Must be corrected before the verdict ships
-
-The Drift Diff is mandatory in every verdict output. DRIFT and INVERTED findings are presented to the user for validation — the supervisor cannot silently incorporate unsourced expansions into the synthesis.
+The supervisor is the first line of defense. The user reviews judgment calls, not mechanical verification.
 
 ### Independence Score (All Modes)
 

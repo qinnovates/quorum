@@ -645,13 +645,13 @@ The single best improvement: **always include `--artifact` pointing to your desi
 
 The most dangerous hallucination isn't a fabricated citation — it's a real citation with an inverted finding. The DOI resolves, but the claim says the opposite of what the paper actually found.
 
-The Drift Diff catches this by comparing every claim in the synthesis against the Phase 1 research pool:
+The supervisor runs drift detection as part of Phase 4 synthesis — not as a post-hoc check. It auto-corrects what it can before the verdict reaches you:
 
-- **EXPANDED** — new claim with a source (agent found it during cross-review). Included, noted for awareness
-- **DRIFT** — new claim with NO source (appeared during synthesis). Flagged. Supervisor must source it, mark it unverified, or remove it
-- **INVERTED** — claim direction flipped from the source material. **Blocks delivery** until corrected
+- **DRIFT** (unsourced new claim) → Supervisor web-searches for a source. If found: reclassified. If not: removed or labeled "unverified"
+- **INVERTED** (finding direction flipped) → Supervisor corrects synthesis to match source. If the agent intentionally disagreed with the source: both positions preserved in the disagreement register
+- **EXPANDED** (sourced new claim) → Supervisor verifies the source exists. If unverifiable: reclassified as DRIFT
 
-The diff is mandatory in every verdict. You see exactly what changed between research and synthesis, and you validate before acting on it.
+You see a resolved diff: what the supervisor already fixed, plus anything it couldn't resolve that needs your judgment. The supervisor is the first line of defense — you handle the edge cases, not the mechanical verification.
 
 Every synthesis also includes: convergence score, bias detection (4 cognitive bias checks), independence metric, evidence scorecard, and drift diff. [Full methodology ->](docs/ARCHITECTURE.md#structured-reasoning-metrics)
 
