@@ -1,9 +1,9 @@
 ---
 name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
-argument-hint: '"your question" [--max] [--reviewers] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run]'
+argument-hint: '"your question" [--max] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run]'
 disable-model-invocation: false
-version: 6.0.0
+version: 7.0.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -25,7 +25,7 @@ Multi-agent intelligence for any question. SMEs debate, challenge each other, an
 
 Built by [qinnovate](https://qinnovate.com) | [Full docs on GitHub](https://github.com/qinnovates/quorum)
 
-## Three Tiers
+## Four Tiers
 
 | Command | What Happens | Agents |
 |---------|-------------|--------|
@@ -53,7 +53,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 - Nemeth (2001): Assigned devil's advocacy makes people MORE entrenched. Critics must hold authentic positions with counter-proposals
 - Schweiger (1986): Critics who propose counter-plans produce 34% higher decision quality than critics who only attack
 
-## Only 5 Optional Flags
+## Only 4 Optional Flags
 
 | Flag | Why It Can't Be Auto-Detected |
 |------|-------------------------------|
@@ -91,7 +91,6 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 # → Supervisor detects "Build" → generates PRD with TDD + acceptance criteria
 # → Converse stress-tests the PRD (Architect, Breaker, TDD Enforcer, Pragmatist, Judge)
 # → Outputs: _swarm/prd-user-auth.md (battle-tested PRD)
-# → Run the Ralph loop: ./quorum/scripts/ralph.sh --prd _swarm/prd-user-auth.md
 
 # Review a document
 /quorum "Review this proposal for risks" --artifact proposal.md
@@ -134,20 +133,17 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
    - TDD Enforcer: "Is every task actually testable? Assertions specific enough?"
    - Pragmatist: "Is this over-engineered? Can tasks be eliminated?"
    - Judge: Computes convergence score. Declares READY or sends back for revision.
-4. **Output:** `_swarm/prd-{name}.md` — battle-tested PRD with Ralph loop command
+4. **Output:** `_swarm/prd-{name}.md` — battle-tested PRD ready for implementation
 
-```bash
-# Run the PRD via Ralph loop
-./quorum/scripts/ralph.sh --prd _swarm/prd-user-auth.md
-```
-
-**The Ralph loop** executes each task with fresh context (sandboxed, standard permissions):
+**The Ralph loop** executes each PRD task with fresh context:
 - Reads PRD + progress.md + AGENTS.md
 - Picks highest-priority incomplete task
 - TDD: test → fail → implement → pass → commit
 - Updates progress.md with learnings
 - Every 3 tasks: Quorum review catches regressions, skipped tests, architecture drift
 - Repeats until all tasks checked off
+
+**Note:** Ralph loop is local-only. Not included in the published marketplace version.
 
 **With vs without `--max`:**
 
@@ -269,7 +265,7 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 | Best for | Ambiguous questions | Stress-testing decisions | Reviewing concrete artifacts |
 | Output | Synthesized verdict | Converged/tension/exhausted | Approved with overrides |
 
-### Reviewers Examples
+### Examples
 
 ```bash
 # Product review — assembles: Strategist → Designer → Engineer → QA
@@ -294,23 +290,8 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 3. **Triage** — Supervisor reads all reports, identifies key disagreements.
 4. **Cross-review** — Debate pairs argue. Devil's Advocate challenges the majority. Critics must counter-propose, not just attack.
 5. **Synthesis** — Supervisor authors the verdict with editorial judgment. Reasoning quality over vote counts.
-6. **Validation** — Web fact-check (preferred), **subagent validation** (structurally independent), or same-session agent review (prompt-level independence).
+6. **Validation** — Web fact-check (preferred) or adversarial agent review.
 7. **Final report** — What survived, what's disputed, what to do next.
-
-### Subagent Execution
-
-Quorum can spawn Claude Code subagents for work that benefits from fresh context — particularly validation, testing, and adversarial review. A subagent has zero knowledge of the main session's conversation, expectations, or prior conclusions. This eliminates confirmation bias structurally, not just by prompt instruction.
-
-**The validation subagent pattern:**
-1. Main Quorum session designs a test protocol with pass/fail criteria
-2. Main session generates a self-contained prompt — full context about what to test, but no expected outcomes
-3. Subagent executes the protocol in fresh context with no anchoring
-4. Subagent reports raw PASS/FAIL results with evidence
-5. Main session interprets results — discrepancies between expected and actual are the signal
-
-This pattern proved its value in production: a validation subagent with no knowledge of expected results ran 11 test phases and caught a real bug that the main session missed — because the main session was anchored on "this should work."
-
-**When Quorum spawns subagents vs. runs inline:** Validation, large-scale research, and adversarial testing use subagents. Quick opinions, artifact analysis, and iterative refinement run inline. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#subagent-execution-model) for the full decision matrix.
 
 ### Max (7-15 agents, supervisor decides)
 
@@ -363,6 +344,27 @@ C < 0.5 after 3+ rounds → check for TENSION or EXHAUSTED
 ```
 
 **Why these weights:** Agreement growth (0.5) is the primary signal — it directly measures whether critics are running out of attacks. Novelty decay (0.3) catches the "going in circles" failure. Defense success (0.2) measures solution robustness but is weighted lower because a good solution can fail early and improve.
+
+### Cognitive Diversity Profiles (CDP)
+
+Each agent gets a 3-axis cognitive profile that changes HOW they reason, not just what they say. Personas define WHAT an agent knows. CDP defines HOW the agent thinks.
+
+**Three axes, three levels each (27 possible profiles):**
+- **Risk Tolerance:** low (weight downside 3x) / mid (balanced) / high (weight upside 2x)
+- **Skepticism:** low (trust established sources) / mid (verify key claims) / high (challenge every assumption)
+- **Abstraction:** low (concrete implementation) / mid (balanced) / high (system-level patterns)
+
+These compile to analytical instructions, not personality adjectives. "R=low" doesn't mean the agent sounds cautious. It means the agent structurally weights negative outcomes more heavily.
+
+**Anti-stereotypical assignment:** A security expert gets HIGH risk tolerance (forced to see opportunities, not just threats). A creative gets HIGH skepticism (forced to pressure-test their ideas). The tension between persona and cognitive profile produces reasoning that neither alone would generate. Assignment is mechanical (fixed lookup table per archetype), not supervisor-judged.
+
+**Parameter-adjusted convergence:**
+```
+C* = C × (1 + 0.3 × (CDI − 0.5))
+
+CDI = 0.2 × D_p + 0.4 × D_r + 0.4 × D_o
+```
+Agreement among diverse thinkers is stronger evidence. A homogeneous panel needs raw C = 0.88 to converge. A diverse panel can converge at C = 0.73. [Full CDP specification →](docs/ARCHITECTURE.md#cognitive-diversity-profiles-cdp)
 
 ### Bias Detection (All Modes)
 
