@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quorum Ralph Loop — Autonomous iteration with dissent review
+# Quorum Ralph Loop — Autonomous iteration with adversarial review
 # Usage: ./ralph.sh [--max N] [--prd PATH] [--review-every N]
 #
 # Combines:

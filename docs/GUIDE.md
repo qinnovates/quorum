@@ -214,9 +214,9 @@ A flat swarm is a single panel of experts debating in parallel. No hierarchy, no
 /quorum "Is this API design RESTful enough?" --artifact api-spec.yaml --lite
 ```
 
-### Mandatory dissent agents (scales with size)
+### Mandatory adversarial agents (scales with size)
 
-| Swarm Size | Dissent Agents | Research Basis |
+| Swarm Size | Adversarial Agents | Research Basis |
 |---|---|---|
 | 3 (minimum) | Devil's Advocate (1) | Asch (1951): single dissenter reduces conformity 32%→5% |
 | 5-8 | Devil's Advocate + Naive User (2) | Moscovici (1969): minority of 2 establishes credible pattern |
@@ -343,7 +343,7 @@ Each team gets:
 - At least 1 member with a contrarian stance (internal devil's advocate)
 
 The org must include:
-- At least 1 dissent team (their job is to challenge)
+- At least 1 adversarial team (their job is to challenge)
 - No team with more than 40% of total agents
 - Teams with genuinely different success metrics
 
@@ -393,7 +393,7 @@ Instead of 8 agents giving 8 opinions, two agents spend 4 rounds drilling into: 
 
 ## Converse Mode (`--converse`)
 
-Not parallel analysis. Not Socratic dialogue. An **iterative dissent-driven convergence** — the full panel stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on what survives.
+Not parallel analysis. Not Socratic dialogue. An **iterative adversarial-driven convergence** — the full panel stays in the room across multiple rounds, attacking proposals, building counter-proposals, and converging on what survives.
 
 ### When to use converse
 
@@ -415,7 +415,7 @@ Not parallel analysis. Not Socratic dialogue. An **iterative dissent-driven conv
 
 ### The research behind the ratio
 
-The 40% dissent / 60% constructive ratio isn't arbitrary. It's derived from convergent findings across jury deliberation (Nemeth 1977), dissent collaboration (Kahneman 2003), multi-agent AI debate (Du et al. 2023, Liang et al. 2023), and devil's advocate research (Schweiger et al. 1986). The critical insight from Nemeth (2001): **assigned contrarianism makes people MORE entrenched, not less.** Converse mode critics hold authentic positions and must propose alternatives — the Schweiger finding that counter-plans beat pure critique by 34%.
+The 40% adversarial / 60% constructive ratio isn't arbitrary. It's derived from convergent findings across jury deliberation (Nemeth 1977), adversarial collaboration (Kahneman 2003), multi-agent AI debate (Du et al. 2023, Liang et al. 2023), and devil's advocate research (Schweiger et al. 1986). The critical insight from Nemeth (2001): **assigned contrarianism makes people MORE entrenched, not less.** Converse mode critics hold authentic positions and must propose alternatives — the Schweiger finding that counter-plans beat pure critique by 34%.
 
 ### The five roles
 
@@ -564,7 +564,7 @@ This is the difference between:
 |----------|--------------|-----|
 | Validating a build/deploy/release | Yes | Fresh context catches what anchored context misses |
 | Fact-checking research output | Yes | Reviewer should not know which facts the researcher "wants" to be true |
-| Dissent testing / red team | Yes | Attacker should not know the defenses |
+| Adversarial testing / red team | Yes | Attacker should not know the defenses |
 | Testing code changes | Yes | Tester should not know which tests "should" pass |
 | Quick opinion on a design choice | No | Overhead not worth it for lightweight decisions |
 | Reviewing an artifact already in context | No | Main session already has the file loaded |
@@ -674,7 +674,7 @@ Modes compose. Stack them for maximum rigor.
 
 ## Human Ratification (`--ratify`)
 
-`--ratify` adds a human-approval gate to any Quorum session. After the panel deliberates and the supervisor drafts a verdict, the session pauses for your sign-off before finalizing. An auditor pass reviews the verdict for internal consistency, unsupported leaps, and missed dissent — then you approve, reject, or send it back for another round.
+`--ratify` adds a human-approval gate to any Quorum session. After the panel deliberates and the supervisor drafts a verdict, the session pauses for your sign-off before finalizing. An auditor pass reviews the verdict for internal consistency, unsupported leaps, and missed adversarial review — then you approve, reject, or send it back for another round.
 
 `--ratify` is orthogonal to depth. It controls **who has final say**, not how many agents run:
 
@@ -723,7 +723,7 @@ Modes compose. Stack them for maximum rigor.
 | `--max --ratify` | ~2.4x base | Maximum depth + human gate — bet-the-company decisions |
 | `--lite --ratify` | ~1.7x of lite (~85K) | Quick question but you want sign-off |
 
-The auditor pass adds cost because it reviews the full verdict for consistency, checks that dissent was addressed, and may trigger a re-run if the verdict doesn't hold up. A re-run (when the auditor finds issues) roughly doubles the cost of the deliberation phase. Most sessions don't trigger a re-run.
+The auditor pass adds cost because it reviews the full verdict for consistency, checks that adversarial review was addressed, and may trigger a re-run if the verdict doesn't hold up. A re-run (when the auditor finds issues) roughly doubles the cost of the deliberation phase. Most sessions don't trigger a re-run.
 
 **Rule of thumb:** If the decision is reversible in under a week, skip `--ratify`. If it's not, the token cost is trivial compared to the cost of getting it wrong.
 
@@ -832,7 +832,7 @@ Every session automatically logs testable claims to `_swarm/ledger.json`:
 Quorum shows each pending claim and asks: CORRECT, INCORRECT, PARTIALLY_CORRECT, UNKNOWN, or SKIP. Then computes:
 
 - **Overall calibration** — when Quorum says HIGH, how often is it right?
-- **Per persona type** — are Technical agents more accurate than Dissent?
+- **Per persona type** — are Technical agents more accurate than Adversarial?
 - **Per mode** — is review mode more reliable than research mode?
 - **Per rigor** — does high rigor actually produce better outcomes?
 

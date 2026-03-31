@@ -52,6 +52,8 @@
   - [Layer 3: Hallucination Red Flags](#layer-3-hallucination-red-flags-supervisor-checklist)
   - [Layer 4: Independent Validation](#layer-4-independent-validation-phase-5)
   - [Layer 5: Transparency in Output](#layer-5-transparency-in-output)
+- [Operational Definitions (v7.3.0)](#operational-definitions-v730)
+- [Adversarial Attack Model (v7.3.0)](#adversarial-attack-model-v730)
 - [Prompt Templates](#prompt-templates)
   - [Research Agent Template](#research-agent-template)
   - [Analysis Agent Template](#analysis-agent-template)
@@ -170,6 +172,24 @@ Your answers shape which experts I bring in and what they optimize for.
 
 **Relationship to `--ponder`:** The vagueness gate is automatic and asks only what's needed (2-4 questions). `--ponder` is opt-in and runs a full interactive prompt optimization session. They don't conflict — if `--ponder` is set, it supersedes the vagueness gate.
 
+**Codex CLI Prompt Improvement (v7.3.0):**
+
+When the vagueness gate fires and Codex CLI is detected (`codex exec "ping"` succeeds), the supervisor invokes Codex to generate 3 alternative prompt reformulations:
+
+```bash
+codex exec "Given this vague prompt: '{user_prompt}', suggest 3 precise reformulations that specify scope, constraints, and success criteria. Return as numbered list." --json --skip-git-repo-check
+```
+
+The supervisor presents both its own clarifying questions AND Codex's reformulations. The user can:
+- Pick a Codex suggestion as-is
+- Modify a suggestion
+- Ignore suggestions and answer the questions
+- Write their own refined prompt
+
+**Fallback:** If Codex CLI is not installed or times out (120s), the supervisor falls back to questions-only. No degradation of existing behavior.
+
+**Security:** The user's prompt is sent to Codex for reformulation. The `--no-web` flag does NOT prevent this (Codex is a prompt improvement tool, not a web search). Users who want zero external model calls should use `--no-web` combined with writing specific prompts to avoid triggering the vagueness gate. A dedicated `--no-codex-prompt` flag is planned for v7.4.0.
+
 ### Step 1: Detect Query Mode
 
 | Mode | Trigger | Agent Allocation |
@@ -216,7 +236,7 @@ Using the mode + domain classification:
 - Each gets a unique persona, stance directive, and seed questions
 - Follow standard composition rules (see [Composition Rules](#composition-rules))
 
-**Dissent Agents** (all modes):
+**Adversarial Agents** (all modes):
 - Devil's Advocate, Naive User, Domain Outsider (mandatory)
 - Additional challenge agents based on `--rigor` level
 
@@ -225,7 +245,7 @@ Using the mode + domain classification:
 - Not all agents see the same material
 - Research agents see only the query + their search partition assignment
 - Analysis agents see the query + any provided artifact
-- Dissent agents see less context initially (reduces anchoring bias)
+- Adversarial agents see less context initially (reduces anchoring bias)
 
 ---
 
@@ -269,7 +289,7 @@ The supervisor reads every report and makes editorial decisions. This is not mec
 - **Supervisor note:** Write a brief (2-3 sentence) "state of the debate" summary that frames what's settled, what's contested, and what's missing. This goes to all Phase 3 agents as orientation.
 
 **Research Pool Distribution:**
-- Send the deduplicated Research Pool + supervisor's gap assessment to all analysis + dissent agents before Phase 3
+- Send the deduplicated Research Pool + supervisor's gap assessment to all analysis + adversarial agents before Phase 3
 - This ensures debate is grounded in evidence, not speculation
 
 ---
@@ -376,7 +396,7 @@ Drift summary: 4 findings, 3 auto-corrected, 1 requires validation
 
 The synthesis gets challenged by a reviewer who was not involved in producing it.
 
-**Structural limitation (honest disclosure):** Method 2 (agent review) uses a separate agent within the same Claude session and model. This is prompt-level independence, not structural independence. Lorenz et al. (2011) showed that even mild social influence narrows diversity without improving accuracy. Nemeth (2001) showed that role-played dissent is less effective than authentic dissent. The same principle applies here: a reviewer in the same session has implicit context that a truly independent reviewer would not. Method 1 (web search) provides genuinely independent evidence; Method 2 provides useful-but-limited dissent review. Both are valuable. Neither is a substitute for human review.
+**Structural limitation (honest disclosure):** Method 2 (agent review) uses a separate agent within the same Claude session and model. This is prompt-level independence, not structural independence. Lorenz et al. (2011) showed that even mild social influence narrows diversity without improving accuracy. Nemeth (2001) showed that role-played dissent is less effective than authentic dissent. The same principle applies here: a reviewer in the same session has implicit context that a truly independent reviewer would not. Method 1 (web search) provides genuinely independent evidence; Method 2 provides useful-but-limited adversarial review. Both are valuable. Neither is a substitute for human review.
 
 **Method 1: Web Search Fact-Check (stronger independence)**
 Use WebSearch to:
@@ -390,7 +410,7 @@ Spawn a subagent with a self-contained validation prompt. The subagent runs in f
 See [Subagent Execution Model](#subagent-execution-model) for the full pattern, prompt requirements, and phase integration.
 
 **Method 3: Same-Session Agent Review (prompt-level independence — weakest)**
-Spawn a separate Agent with dissent framing:
+Spawn a separate Agent with adversarial framing:
 ```
 You are a reviewer who was NOT part of the swarm that produced this synthesis.
 You have no loyalty to these conclusions. Review with fresh eyes.
@@ -544,7 +564,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 
 ### Mandatory Agents (scaled to swarm size)
 
-| Swarm Size | Required Dissent Agents |
+| Swarm Size | Required Adversarial Agents |
 |---|---|
 | 3 (`--lite --size 3`) | Devil's Advocate only (1 agent) — below Moscovici threshold, use only for quick takes |
 | 5-8 | Devil's Advocate + Naive User (2 agents) — meets Moscovici (1969) credible minority threshold |
@@ -554,7 +574,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 - **Naive User** -- asks basic questions, tests assumptions (5+ agents)
 - **Domain Outsider** -- expert from an unrelated field, forces lateral thinking (9+ agents)
 
-**Research basis for the floor of 2:** Asch (1951) showed a single dissenter reduces conformity from 32% to 5%. Moscovici, Lage & Naffrechoux (1969) showed a minority of 2 in a group of 6 shifts the majority when behaviorally consistent — one dissenter is dismissed as eccentric, two establish a credible pattern. The previous floor of 1 dissent agent at 5-agent swarms was below this threshold. Updated in v5.2.0.
+**Research basis for the floor of 2:** Asch (1951) showed a single dissenter reduces conformity from 32% to 5%. Moscovici, Lage & Naffrechoux (1969) showed a minority of 2 in a group of 6 shifts the majority when behaviorally consistent — one dissenter is dismissed as eccentric, two establish a credible pattern. The previous floor of 1 adversarial agent at 5-agent swarms was below this threshold. Updated in v5.2.0.
 
 ### Diversity Requirements
 
@@ -568,7 +588,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 | Category | Role | Examples |
 |----------|------|---------|
 | Technical | Deep domain expertise | Engineer, architect, researcher |
-| Dissent | Break things | Red teamer, competitor, skeptic |
+| Adversarial | Break things | Red teamer, competitor, skeptic |
 | Domain | Subject-matter authority | Clinician, scientist, analyst |
 | Creative | Lateral thinking | Designer, futurist, artist |
 | Regulatory | Compliance & governance | Lawyer, auditor, policy reviewer |
@@ -578,7 +598,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 ### How Quorum Prevents Groupthink
 
 - **Assigned positions**: Each agent argues from a specific stance, not just "give your opinion"
-- **Controlled information**: Not all agents see the same context -- dissent agents see less, which prevents anchoring
+- **Controlled information**: Not all agents see the same context -- adversarial agents see less, which prevents anchoring
 - **Different focus areas**: No two agents answer the same question -- the supervisor assigns unique seed questions
 - **Minority protection**: If one agent disagrees with everyone but has strong evidence, their position is preserved in the final report -- not buried
 - **External challenge**: The cross-AI gate sends your swarm's conclusions to a different AI system that has no loyalty to the answer
@@ -613,7 +633,7 @@ The supervisor does NOT pick CDP profiles that "match" the persona. A conservati
 | Archetype | Tension Axis | Tension Value | Domain-Contextualized Instruction |
 |-----------|-------------|---------------|----------------------------------|
 | Technical | Risk Tolerance | HIGH | "Identify technical bets that create asymmetric upside. Where does the risky approach yield 10x return?" |
-| Dissent | Risk Tolerance | LOW | "Find what is worth preserving in the proposal. What survives your attack, and why does it survive?" |
+| Adversarial | Risk Tolerance | LOW | "Find what is worth preserving in the proposal. What survives your attack, and why does it survive?" |
 | Domain Expert | Abstraction | HIGH | "Step above your domain. What structural forces shape this problem beyond the technical specifics?" |
 | Creative | Skepticism | HIGH | "Pressure-test every creative suggestion. Which ideas survive contact with implementation reality?" |
 | Regulatory | Abstraction | LOW | "Translate every principle into a concrete implementation checklist. No regulation without a test." |
@@ -664,11 +684,16 @@ C* = C × (1 + k × (CDI − 0.5))
 
 where k = 0.3 (initial calibration, adjust via A/B testing)
 
-CDI = 0.2 × D_p + 0.4 × D_r + 0.4 × D_o
-  D_p = parameter dispersion (above)
-  D_r = reasoning path diversity (source overlap + blind spot overlap)
-  D_o = existing Independence Score
+CDI = 0.15 × D_p + 0.3 × D_r + 0.3 × D_o + 0.25 × D_m
+
+Where:
+  D_p = persona diversity [0,1]
+  D_r = risk/skepticism/abstraction profile spread [0,1]
+  D_o = opinion diversity (actual disagreement in outputs) [0,1]
+  D_m = model diversity = 1 − (agents_from_most_common_model / total_agents)
 ```
+
+**CDI weights are tunable hyperparameters** with these defaults. When `--diverse` is not active, D_m = 0.0 and the weights rescale to the non-diverse defaults: D_p=0.2, D_r=0.4, D_o=0.4 (sum=1.0).
 
 | CDI | Multiplier | Meaning |
 |-----|-----------|---------|
@@ -768,7 +793,7 @@ Socrates never told anyone the answer. He asked questions until the other person
 
 ## Converse Mode (`--converse`)
 
-When `--converse` is set, the swarm becomes an **iterative dissent-driven convergence engine** — the full panel stays in the room across multiple rounds, critiquing each other's proposals, building counter-proposals, and converging on solutions that survive sustained attack.
+When `--converse` is set, the swarm becomes an **iterative adversarial-driven convergence engine** — the full panel stays in the room across multiple rounds, critiquing each other's proposals, building counter-proposals, and converging on solutions that survive sustained attack.
 
 Unlike dialectic mode (2 agents, philosophical depth) or standard mode (parallel analysis, single cross-review), converse mode is **multi-agent iterative problem-solving** — the quorum converses back and forth to identify problems, propose solutions, attack those solutions, and converge on what survives.
 
@@ -783,7 +808,7 @@ The agent composition and ratio in converse mode are derived from peer-reviewed 
 | Collective Error = Avg Individual Error − Prediction Diversity | Page (2007), *The Difference*, Princeton | Adding a dissenting member improves output even if individually less accurate, as long as errors are uncorrelated |
 | Role-played devil's advocacy causes cognitive bolstering — people become MORE entrenched | Nemeth, Brown & Rogers (2001), *EJSP* 31(6), DOI: 10.1002/ejsp.58 | Critics must hold authentic positions with counter-proposals, not assigned contrarianism |
 | Dialectical Inquiry (counter-plan) produces 34% higher quality than consensus | Schweiger, Sandberg & Ragan (1986), *AMJ* 29(1), DOI: 10.5465/255859 | Critics must propose alternatives, not just attack |
-| AI debate: 2 debaters optimal; COMET drops from 84.4→83.1→82.9 at 3-4 agents | Liang et al. (2023), arXiv:2305.19118, EMNLP 2024 | Performance degrades with too many dissent agents — context overload |
+| AI debate: 2 debaters optimal; COMET drops from 84.4→83.1→82.9 at 3-4 agents | Liang et al. (2023), arXiv:2305.19118, EMNLP 2024 | Performance degrades with too many adversarial agents — context overload |
 | 3 agents, 2 rounds is practical optimum for multi-agent AI debate | Du et al. (2023), arXiv:2305.14325, ICML 2024 | Diminishing returns beyond 3 agents and 2 rounds |
 | Group intelligence correlates with equal conversational turns, not member IQ | Woolley et al. (2010), *Science* 330(6004), DOI: 10.1126/science.1193147 | Structural equality of voice matters more than adding agents |
 | Social influence narrows diversity without improving accuracy | Lorenz et al. (2011), *PNAS* 108(22), DOI: 10.1073/pnas.1008636108 | Independence must be protected by design in early rounds |
@@ -814,7 +839,7 @@ Historian  = 1 if N ≥ 7                 # Pattern-matches to prior failures (o
 | `--converse --full` | 7 | 3 (Realist + Breaker + Historian) | 4 (Proposer + Synthesizer + Judge + Survivor) | 43/57 | Judge decides (max 6) |
 
 **Why this ratio, not 80/20 or higher:**
-- Liang et al. (2023) show COMET scores DROP at 3+ dissent agents (context overload)
+- Liang et al. (2023) show COMET scores DROP at 3+ adversarial agents (context overload)
 - Nemeth (2001) shows the mechanism isn't quantity of criticism — it's **quality** and **authenticity**
 - Schweiger (1986) shows critics who must build counter-plans (DI) outperform critics who only attack (DA) by 34%
 - The builders are fixed at minimum because you need enough constructive force to prevent nihilistic loops (the "Pessimistic Ralph" problem)
@@ -825,7 +850,7 @@ Historian  = 1 if N ≥ 7                 # Pattern-matches to prior failures (o
 |------|--------|-------------|-----------------|
 | **Proposer** | Pragmatic | Puts first solution on the table. After Round 1, defends and adapts based on criticism. Not optimistic — just goes first. | Every round |
 | **Realist** | Constructive pessimist | "Here's why this fails in the real world, AND here's what would survive that failure." Must point at what survives, not just what breaks. | Every round |
-| **Breaker** | Dissent | "Here's how I'd deliberately break this solution." Attacks the proposal from the most damaging angle. Must propose the attack vector, not just state pessimism. | Every round |
+| **Breaker** | Adversarial | "Here's how I'd deliberately break this solution." Attacks the proposal from the most damaging angle. Must propose the attack vector, not just state pessimism. | Every round |
 | **Synthesizer** | Neutral constructive | "Given everything that's been said, here's what's still standing." Speaks at convergence checkpoints. Identifies what survived criticism and what collapsed. | Rounds 2, 4, final |
 | **Judge** | Neutral arbiter | Tracks convergence across rounds. Declares when the group has converged, identified irreducible tension, or hit diminishing returns. Calls endpoint. Cannot take a position. | End of each round (meta-commentary only) |
 | **Historian** | Pattern-matcher (--full only) | "This was tried before. Here's what happened." Brings historical precedent, analogous failures, and prior art. | Rounds 1-2 |
@@ -879,6 +904,21 @@ The Judge tracks three signals across rounds:
 | **Loop detection** | Same criticism appears 2+ rounds with same response | Declare irreducible tension |
 | **Diminishing returns** | New rounds produce only minor refinements, no structural changes | End the conversation |
 
+**Convergence Formula (v7.3.0):**
+
+```
+C = (A × 0.6) + (D × 0.4)
+C* = C × (1 + 0.3 × (CDI − 0.5))
+
+Thresholds:
+  C* ≥ 0.8          → CONVERGED
+  C* ∈ [0.65, 0.8)  → VOTE (structured ballot)
+  C* ∈ [0.5, 0.65)  → continue
+  C* < 0.5 after 3+ → TENSION or EXHAUSTED
+
+Termination signal: N > 0.9 for 2 consecutive rounds → EXHAUSTED
+```
+
 The Judge declares one of three outcomes:
 - **CONVERGED** — The group found a solution that survived sustained attack. Report includes the attack resistance map.
 - **TENSION** — An irreducible tradeoff was identified. Report names the tension and the evidence on both sides. The user decides.
@@ -915,18 +955,28 @@ VOTE: {
 **Votes are weighted, not counted.** Raw headcount is not the decision mechanism:
 
 ```
-weighted_vote = confidence × evidence_multiplier × independence_multiplier
+vote_weight = confidence × evidence_tier_mult × independence_mult × hedge_mult × overconf_mult
 
 where:
-  evidence_multiplier:
-    1.5 if rationale cites a specific source from the research pool
-    1.0 if rationale is reasoning-based without citation
-    0.5 if rationale is preference-based ("I think..." without evidence)
+  evidence_tier_mult:
+    1.5 if rationale cites STRONG source (peer-reviewed, systematic review)
+    1.0 if rationale cites MODERATE source or reasoning-based without citation
+    0.5 if rationale cites WEAK source or is preference-based ("I think...")
 
-  independence_multiplier:
+  independence_mult:
     1.2 if agent's Phase 1 report had low overlap with other voters for same position
     1.0 otherwise
     0.8 if agent's Phase 1 report had high overlap (possible echo voting)
+
+  hedge_mult = 1 - (0.3 × H)
+    H = count(vaguely_hedged_claims) / count(total_claims)
+    Vaguely hedged = qualifiers without conditions. Legitimate hedging not penalized.
+    Range: [0.7, 1.0]
+
+  overconf_mult = max(0.1, 1 - O)
+    O = |{claims where agent_confidence > evidence_tier}| / |total_claims|
+    Maps: HIGH=3, MEDIUM=2, LOW=1 vs STRONG=3, MODERATE=2, WEAK=1, UNVERIFIED=0
+    Range: [0.1, 1.0]
 ```
 
 **Vote output in the verdict:**
@@ -1032,7 +1082,7 @@ Supervisor decision: Position A, informed by weighted vote + reasoning quality
 
 - Research agents get full web search access but limited analysis expectations
 - Analysis agents get full reasoning depth but no web search (they work from the Research Pool)
-- Dissent agents get minimal initial context (reduces anchoring, saves tokens)
+- Adversarial agents get minimal initial context (reduces anchoring, saves tokens)
 
 ---
 
@@ -1103,6 +1153,134 @@ The final report includes a **Confidence & Verification** section:
 - Any findings where agents disagreed and the disagreement was not resolved
 
 **The rule: If it can't be sourced, it gets flagged. If it can't be verified, it says so. If agents disagree, both sides are shown. The user decides -- not the AI.**
+
+---
+
+## Operational Definitions (v7.3.0)
+
+These definitions operationalize the terms used in the convergence and scoring formulas. Without them, the formulas are aspirational, not computable.
+
+### Claim Extraction
+
+A **claim** is a discrete factual assertion, recommendation, or position that can be independently evaluated. Claims are extracted from agent prose by the supervisor during Phase 2 triage.
+
+**What counts as a claim:**
+- "PostgreSQL handles 10K TPS under lab conditions" — factual assertion (1 claim)
+- "We should use PostgreSQL for this project" — recommendation (1 claim)
+- "PostgreSQL is better because it's more popular and has more features" — 2 claims (popularity + features)
+
+**What does NOT count as a claim:**
+- Hedging language without substance ("It depends on the context")
+- Meta-commentary ("I agree with Agent 2")
+- Questions ("Have we considered DynamoDB?")
+
+### Claim Matching
+
+Two claims are considered **the same claim** if their semantic similarity exceeds τ_match = 0.85 (cosine similarity of sentence embeddings). This threshold is a tunable hyperparameter.
+
+- τ_match = 0.85 is a high-precision threshold: it matches near-paraphrases while rejecting topically similar but substantively different claims
+- Implementation: sentence-transformers embedding + cosine similarity, or LLM-based matching as fallback
+- Failure mode: rephrased arguments with different conclusions may match if surface language is similar. The entailment direction should also be checked when `--strict-evidence` is enabled.
+
+### Defense Success
+
+An **attack** is a claim that explicitly contests another claim. "Survived" means the attacked claim appears (possibly refined) in the next round's output despite the attack.
+
+- Attack detection: the supervisor identifies claims that directly contradict or challenge prior-round claims
+- Survived: the claim persists in claims_held(r) with sim > τ_match to the original
+- Refined: the claim changed but retains the same core position (sim > 0.7 to original). Counts as survived.
+- Abandoned: the claim does not appear in claims_held(r). Counts as failed defense.
+
+### Agreement Growth Computation
+
+Agreement Growth A measures whether the set of uncontested claims is growing (convergence) or shrinking (productive disagreement).
+
+```
+A(r) = |claims_held(r) ∩ claims_held(r-1)| / |claims_held(r-1)|
+
+Where claims_held(r) = set of claims no agent contested in round r
+Intersection computed via semantic matching (τ_match = 0.85)
+```
+
+- A = 1.0: every claim from last round is still uncontested (full stability)
+- A = 0.5: half the claims were challenged (active debate)
+- A = 0.0: everything was contested (no convergence)
+
+### Evidence Quality Score (Continuous)
+
+Upgrades the binary evidence tier to a continuous score:
+
+```
+E(claim) = source_weight(tier) × relevance(claim, source)
+
+source_weight: STRONG=1.0, MODERATE=0.7, WEAK=0.3, UNVERIFIED=0.0
+relevance: cosine_similarity(embed(claim), embed(source_passage))
+
+Source deduplication (when total_citations > 3):
+E_adjusted = E × (unique_sources / total_citations)
+```
+
+**Optional entailment check (`--strict-evidence`):**
+```
+relevance = cosine_similarity(...) × entailment_score(source → claim)
+```
+Where entailment_score uses NLI classification: does the source entail, contradict, or is neutral toward the claim? This catches adjacent-but-wrong citations (source says "lab conditions," agent claims "production").
+
+---
+
+## Adversarial Attack Model (v7.3.0)
+
+Five named attack agents stress-test Quorum's scoring system. Each targets a specific equation or mechanism and provides a concrete falsification. These attacks informed the v7.3.0 scoring revisions.
+
+### Agent 1: The Minimalist
+
+**Attack:** The convergence formula is overcomplicated.
+**Target:** C formula (formerly 3-term, now 2-term)
+**Strategy:** Prove that Agreement Growth (A) and Novelty Decay (N) are >0.9 correlated — as claims stabilize, new arguments also decline. A 3-term formula with two redundant inputs is a 2-term formula wearing a disguise.
+**Example:** In a 5-agent, 3-round deliberation: Round 1 A=0.40, N=0.35. Round 2 A=0.72, N=0.70. Round 3 A=0.91, N=0.93. Correlation r=0.99. The third term (D) is the only independent signal.
+**Survives?** Attack succeeded. C simplified from `(A×0.5)+(N×0.3)+(D×0.2)` to `(A×0.6)+(D×0.4)`. N retained as termination signal only.
+
+### Agent 2: The Exploiter
+
+**Attack:** Evidence scoring can be gamed with adjacent-but-wrong citations.
+**Target:** E(claim) = source_weight × relevance
+**Strategy:** Cite a real STRONG source that says something *adjacent* to the claim but materially different. Example: source says "PostgreSQL handles 10K TPS under lab conditions." Agent claims "PostgreSQL handles 10K TPS in production." Cosine similarity > 0.95. E(claim) ≈ 0.95. But the claim is wrong — lab ≠ production.
+**Example:** An agent citing the AWS well-architected framework for a claim about "guaranteed 99.99% uptime" when the framework says "designed for high availability" scores E > 0.9 without the claim being accurate.
+**Survives?** Attack partially succeeds. Cosine similarity alone is gameable. Mitigation: `--strict-evidence` entailment check catches this. Without it, the vulnerability remains.
+
+### Agent 3: The Statistician
+
+**Attack:** CDI weights are unfittable at Quorum's sample size.
+**Target:** CDI = 0.15×D_p + 0.3×D_r + 0.3×D_o + 0.25×D_m
+**Strategy:** With 5-15 agents per run, you cannot empirically validate a 4-weight model. To get stable OLS estimates (SE < 0.05 per weight), you need n ≥ 60 observations minimum. A single Quorum run produces 1 observation. The weights encode the designer's intuitions, not empirical findings.
+**Example:** If D_p is actually more important than D_r (plausible — different personas explore different solution spaces), then CDI is systematically miscalibrated. A panel with high D_r but low D_p gets an inflated CDI, converges too easily, and produces groupthink masked as diversity.
+**Survives?** Attack succeeds on the "derived" framing. Mitigation: CDI weights relabeled as tunable hyperparameters with defaults (not derived constants). Empirical tuning recommended after 50+ runs.
+
+### Agent 4: The Retrieval Hacker
+
+**Attack:** Single-source dependence is invisible to evidence scoring.
+**Target:** E_synth and Independence Score
+**Strategy:** All 5 agents cite the same authoritative document. Each gets E > 0.9 (STRONG source, high relevance). Independence score is high because their *claims* differ. But the evidence base is one document. If that document is wrong, the entire synthesis fails with HIGH confidence.
+**Example:** 5 agents all cite a single AWS whitepaper for different claims about database performance. Each claim scores E > 0.9. The whitepaper has a known error in its benchmarking methodology. Quorum produces a CONVERGED verdict based on a flawed single source.
+**Survives?** Attack succeeds. Mitigation: source deduplication added — `E_adjusted = E × (unique_sources / total_citations)` when citations > 3. Collapses inflated evidence from single-source dependence.
+
+### Agent 5: The Skeptic
+
+**Attack:** Training bias produces confident convergence on wrong answers.
+**Target:** Entire pipeline
+**Strategy:** If all agents share a training-data bias (e.g., "React is better than Vue" because React dominates training corpora), they converge quickly with high C*, pass all validation gates (sources also reflect the bias), and produce a confidently wrong synthesis.
+**Example:** Question: "Best frontend framework for a small team's simple app?" All Claude agents converge on React. C* = 0.85. Evidence: official docs, benchmarks (all React-favorable). Verdict: CONVERGED. But Vue or Svelte would be better for the user's actual constraints (small team, simple app).
+**Survives?** Attack succeeds — no scoring formula fixes training bias. Mitigations: (1) `--diverse` injects Gemini/Codex with different training biases, (2) the vagueness gate forces constraint specification that breaks "default best" patterns, (3) `CROSS_MODEL_DIVERGENCE` flags catch when Claude-only claims aren't confirmed by external models. The vagueness gate is the most important defense — it forces the user to specify constraints that differentiate answers.
+
+### Summary Table
+
+| Agent | Target | Broke It? | Fix Applied |
+|-------|--------|-----------|-------------|
+| Minimalist | C formula complexity | Yes | Simplified to 2-term; N → termination signal |
+| Exploiter | Evidence scoring | Partially | `--strict-evidence` entailment check (optional) |
+| Statistician | CDI weights | Yes (framing) | Relabeled as tunable hyperparameters |
+| Retrieval Hacker | Source dedup | Yes | E_adjusted with unique source ratio |
+| Skeptic | Training bias | Yes (unsolvable) | `--diverse` + vagueness gate + cross-model flags |
 
 ---
 
@@ -1266,7 +1444,7 @@ Flag:
 4. Recommendations you disagree with and why
 5. One thing you'd add that no agent mentioned
 
-Be dissent. The swarm will respond to your critique, so make it count.
+Be adversarial. The swarm will respond to your critique, so make it count.
 ```
 
 ---
@@ -1353,7 +1531,7 @@ Not all agents need all tools. The supervisor gates tool access by role:
 | Supervisor | All | Orchestration requires full access |
 | Research Agent | Agent, WebSearch, WebFetch, Read, Glob, Grep | Needs web access, no file mutation |
 | Analysis Agent | Agent, Read, Glob, Grep | Works from Research Pool, no web or file writes |
-| Dissent Agent | Agent, Read | Minimal context reduces anchoring |
+| Adversarial Agent | Agent, Read | Minimal context reduces anchoring |
 
 Agents should never be spawned with `Bash`, `Write`, or `Edit` permissions. Only the supervisor uses those tools for output generation and session persistence.
 
@@ -1614,7 +1792,7 @@ Agent A-{{ID}}:
   Activation: {{SCHEDULE — round-robin / reactive / probabilistic}}
 ```
 
-Dissent agents are injected at the branch level, not the leaf level:
+Adversarial agents are injected at the branch level, not the leaf level:
 - 1 Devil's Advocate per top-level branch (argues against the branch's emerging consensus)
 - 1 Domain Outsider per 3 branches (expert from a domain not in the taxonomy at all)
 - Socrates and Plato operate at the cluster level in Phase S5
@@ -1809,7 +1987,7 @@ Socrates' questions and cluster responses. Plato's evidence audit.
 | **Agent interaction** | Free-form (social media simulation) | Structured (POST/REACT/HANDOFF/SHIFT within territory rules) |
 | **Aggregation** | Qualitative synthesis of interaction logs | Pattern extraction + editorial judgment + evidence audit |
 | **Validation** | None | 5-layer pipeline + independent cross-AI gate |
-| **Anti-groupthink** | None (emergence can amplify bias) | Anti-boxing rules + inverted early termination + dissent immunity |
+| **Anti-groupthink** | None (emergence can amplify bias) | Anti-boxing rules + inverted early termination + adversarial immunity |
 
 Quorum Swarm Mode takes MiroFish's scaling mechanism (environment-based coordination, probabilistic activation, emergent pattern detection) and wraps it in Quorum's epistemic guarantees (MECE territories, evidence tiers, structural challenge, independent validation). The result is collective intelligence at scale with built-in bullshit detection.
 
@@ -2116,7 +2294,7 @@ The viewer uses a **pre-built template** stored at `_swarm/viz/viewer-template.h
 │    challenge=red, support=green,  │                      │
 │    handoff=blue)                  │    Legend:            │
 │                                  │    🔵 Technical       │
-│                                  │    🔴 Dissent     │
+│                                  │    🔴 Adversarial │
 │                                  │    🟢 Domain          │
 │                                  │    🟣 Creative        │
 │                                  │    🟠 Regulatory      │
@@ -2134,7 +2312,7 @@ The viewer uses a **pre-built template** stored at `_swarm/viz/viewer-template.h
 ```
 
 **Viewer features:**
-1. **Force-directed agent graph** — D3 force simulation. Nodes = agents (colored by archetype: Technical=blue, Dissent=red, Domain=green, Creative=purple, Regulatory=orange, User=teal, Business=gold). Node size = interaction count. Edges colored by type. Click node → info panel shows agent details.
+1. **Force-directed agent graph** — D3 force simulation. Nodes = agents (colored by archetype: Technical=blue, Adversarial=red, Domain=green, Creative=purple, Regulatory=orange, User=teal, Business=gold). Node size = interaction count. Edges colored by type. Click node → info panel shows agent details.
 2. **Timeline scrubber** — Range slider (round 0 to N). Filters graph and drift chart to show state at that round. Play button auto-advances. **Speed controls: 1x (1 second per round), 2x, 4x.** Pause to inspect any round.
 3. **Opinion drift chart** — SVG line chart. Each agent = one line. Y-axis = confidence (0-10). X-axis = rounds. Agents whose confidence changed most are drawn with thicker strokes.
 4. **Cluster/coalition highlights** — When a cluster or coalition exists at the current round, its member nodes get a convex hull overlay on the graph. Hull color matches cluster ID.
@@ -2310,7 +2488,7 @@ Quorum can execute work either **inline** (within the current conversation conte
 |-----------|------------------------|
 | **Validation/testing that needs unbiased fresh context** | The subagent has no knowledge of expected outcomes, eliminating confirmation bias. It cannot anchor on prior discussion. |
 | **Research that could pollute main context** | Large search results, API responses, and evidence dumps stay isolated. The main session receives only the structured findings. |
-| **Dissent testing where the tester should not know the expected answer** | A subagent running a test protocol cannot unconsciously steer results toward what the main session "wants" to find. |
+| **Adversarial testing where the tester should not know the expected answer** | A subagent running a test protocol cannot unconsciously steer results toward what the main session "wants" to find. |
 | **Parallel independent work** | Subagents can run in background (`run_in_background: true`) while the main session continues other work. |
 | **Code execution that could modify state** | Isolating state-changing operations in a subagent (or worktree) prevents accidental side effects in the main session. |
 

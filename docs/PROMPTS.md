@@ -215,7 +215,7 @@ Respond:
 
 ### When Used
 
-**Phase 3 (Cross-Review)** in all modes. The Devil's Advocate is a mandatory dissent agent (present in every swarm regardless of size). After Phase 2, the Supervisor distills the majority positions from all agent reports and sends them to the Devil's Advocate, whose job is to construct the strongest possible counter-argument for each.
+**Phase 3 (Cross-Review)** in all modes. The Devil's Advocate is a mandatory adversarial agent (present in every swarm regardless of size). After Phase 2, the Supervisor distills the majority positions from all agent reports and sends them to the Devil's Advocate, whose job is to construct the strongest possible counter-argument for each.
 
 ### Template
 
@@ -245,7 +245,7 @@ Do not manufacture disagreement where none exists.
 
 - The Supervisor should write `POSITIONS` as clear, specific claims -- not vague summaries. "EEG-based authentication achieves 95%+ accuracy in lab settings" is arguable. "EEG authentication looks promising" is not.
 - The self-rating (STRONG/MODERATE/WEAK) is critical. It prevents the Devil's Advocate from treating every counter-argument as equally valid. A WEAK self-rating means the agent is saying "I tried, but the majority is probably right on this one."
-- The final instruction ("Do not manufacture disagreement") is load-bearing. Without it, dissent agents tend to produce contrarian noise. Real dissent is valuable; manufactured dissent wastes tokens.
+- The final instruction ("Do not manufacture disagreement") is load-bearing. Without it, adversarial agents tend to produce contrarian noise. Real adversarial pressure is valuable; manufactured adversarial pressure wastes tokens.
 - The Devil's Advocate sees less context than analysis agents (no artifact, minimal background). This is intentional: it reduces anchoring bias and forces counter-arguments to stand on their own logic.
 - If the Devil's Advocate rates all counter-arguments as WEAK, that is a strong signal that the consensus is robust. Note this in the synthesis.
 
@@ -379,7 +379,7 @@ Produce:
 ```
 You are the Breaker in a converse-mode deliberation on: {{TOPIC}}
 
-Your stance: dissenting. You find the attack vector that kills the proposal. You think like a red teamer — what's the most damaging way this fails?
+Your stance: adversarial. You find the attack vector that kills the proposal. You think like a red teamer — what's the most damaging way this fails?
 
 Round: {{ROUND_NUMBER}}
 Previous round transcript:
@@ -607,7 +607,7 @@ Challenge the synthesis. The swarm will respond to your critique, so make it cou
 |----------|-------------|--------|
 | `{{N}}` | Total number of agents in the swarm. | Calculated by the Supervisor from the swarm configuration (default 5, or set via `--size`). |
 | `{{R_COUNT}}` | Number of research agents in the swarm. | Calculated by the Supervisor based on mode (0 in REVIEW mode, ~30% in RESEARCH mode, ~20% in HYBRID mode). |
-| `{{A_COUNT}}` | Number of analysis agents in the swarm. | Calculated by the Supervisor based on mode and total swarm size after subtracting research and dissent agents. |
+| `{{A_COUNT}}` | Number of analysis agents in the swarm. | Calculated by the Supervisor based on mode and total swarm size after subtracting research and adversarial agents. |
 | `{{TOPIC}}` | The user's original question or research topic. | Passed directly from the `/quorum` invocation. |
 
 ### Tips

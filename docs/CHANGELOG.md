@@ -2,6 +2,74 @@
 
 All notable changes to Quorum are documented here.
 
+## [v7.3.0](https://github.com/qinnovates/quorum/releases/tag/v7.3.0) — 2026-03-29
+
+### Changed — Terminology Revert: "dissent" → "adversarial"
+- **Reverted all instances** of "dissent" back to "adversarial" across all documentation and skill definitions (~67 occurrences, 9 files)
+- **Rationale:** "Adversarial" accurately describes the mechanism — agents that attack proposals to stress-test them — and aligns with the new Adversarial Attack Model. The v5.2.0 rename to "dissent" is preserved in cognitive science citations (Nemeth, Asch, Moscovici) where it is the native term
+- Key reverts: "dissent-driven convergence" → "adversarial-driven convergence", "dissent agents" → "adversarial agents", "Dissent 1/2" → "Adversarial 1/2", "dissent minimum" → "adversarial minimum"
+
+### Added — Adversarial Attack Model
+- **5 named attack agents** that stress-test Quorum's scoring system: The Minimalist (complexity), The Exploiter (rubric gaming), The Statistician (weight validity), The Retrieval Hacker (evidence manipulation), The Skeptic (consensus-on-wrong-answer)
+- Each agent includes: attack strategy, target terms, concrete falsification example, and "survives?" assessment
+- Summary table of all attacks and fixes applied
+- New section in ARCHITECTURE.md between Operational Definitions and Prompt Templates
+
+### Changed — Scoring Formula Enhancements
+- **Convergence C simplified:** `C = (A×0.6) + (D×0.4)` — N (Novelty Decay) removed from score (>0.9 correlated with A), retained as termination signal (N < 0.1 for 2 consecutive rounds → EXHAUSTED)
+- **Calibration penalties added:** Hedging penalty H (`hedge_mult = 1 - 0.3×H`) and Overconfidence penalty O (`overconf_mult = max(0.1, 1-O)`) — agents who hedge without conditions or overclaim relative to evidence tier lose vote weight
+- **Evidence scoring upgraded:** Binary (1.5/1.0/0.5) → continuous `E(claim) = source_weight(tier) × relevance(claim, source)` with source deduplication (`E_adjusted = E × unique_sources/total_citations` when citations > 3) and optional `--strict-evidence` entailment check
+- **CDI weights labeled** as tunable hyperparameters with defaults `[0.15, 0.3, 0.3, 0.25]`, not derived constants
+- **Vote weight formula expanded:** `vote_weight = confidence × evidence_tier_mult × independence_mult × hedge_mult × overconf_mult`
+- **Vote thresholds clarified:** C* ≥ 0.8 CONVERGED, [0.65, 0.8) VOTE, [0.5, 0.65) CONTINUE, <0.5 after 3+ TENSION
+
+### Added — Codex CLI Prompt Improvement
+- **Vagueness gate enhanced:** When vagueness gate fires and Codex CLI is detected, generates 3 alternative prompt reformulations alongside clarifying questions
+- User can pick a suggestion, modify one, or write their own
+- Falls back to questions-only when Codex not available — existing behavior unchanged
+
+### Added — Python Scoring Module
+- **First Python code:** `src/quorum_scorer.py` — offline scoring harness implementing all v7.3.0 formulas
+- **Dataclasses:** Claim, Attack, AgentOutput, RoundData, ScoringTrace, ScoringConfig
+- **Functions:** compute_round_scores, agreement_growth, defense_success_rate, novelty_decay, compute_cdi, compute_vote_weight, compute_evidence_score, hedging_penalty, overconfidence_penalty, source_dedup_ratio, classify_outcome
+- **Test suite:** `src/test_scoring.py` — 40 deterministic tests across 3 canned scenarios (GOOD, SHALLOW, HALLUCINATED)
+- **Trace output:** ScoringTrace serializable to JSON for observability
+
+### Added — Operational Definitions
+- **Claim extraction spec:** What counts as a claim, semantic matching with τ_match = 0.85 cosine threshold
+- **Defense success definition:** Attack = explicit contest; survived = claim persists despite attack
+- **Agreement Growth computation:** Set-intersection of claims_held across rounds via semantic matching
+- **Evidence Quality Score:** Continuous computation with source deduplication and optional entailment check
+
+---
+
+## [v7.2.0](https://github.com/qinnovates/quorum/releases/tag/v7.2.0) — 2026-03-28
+
+### Added — Multi-Model Diversity (`--diverse`)
+- **Multi-model panels** ��� replace 2 of 5 agent slots with Gemini and Codex (OpenAI) via their CLIs. Different training data, different RLHF, different blind spots. Genuine prior diversity, not prompt-level diversity on one model
+- **Phase 1 injection** — external models participate as independent analysts in parallel with Claude agents. Their claims enter the Phase 2 claim pool tagged with `model: gemini` or `model: codex` for cross-model tracking
+- **Phase 5 cold-review** — after synthesis, an external model reviews the verdict without seeing deliberation history. Structural independence + genuine prior diversity
+- **Cross-Model Divergence flag** — new flag type: when the cold reviewer challenges a high-severity claim that the internal panel agreed on, it's flagged as `CROSS_MODEL_DIVERGENCE`
+- **Model Diversity Report** — new section in every `--diverse` verdict: cross-model agreement percentage, Claude-only claims (flagged as potential training bias), external-only claims (surfaced as potential blind spots)
+- **Auto-detection** — `--max` auto-enables `--diverse` when `gemini` and `codex` CLIs are detected. Override with `--no-diverse`
+- **Graceful degradation** — pre-flight auth check, 120s timeout per external call, fallback to all-Claude with warning if CLIs fail
+- **Output parsing fallback** — JSON → markdown code fence extraction → unstructured claim extraction (same as Phase 2 triage)
+
+### Changed — Convergence Formula (CDI)
+- **D_m term added** — model diversity now contributes 25% of the Cognitive Diversity Index: `CDI = 0.15 × D_p + 0.3 × D_r + 0.3 × D_o + 0.25 × D_m`. Cross-model agreement is treated as stronger evidence than within-model agreement
+- **New convergence threshold** — multi-model diverse panel can converge at C = 0.68 (vs 0.73 for CDP-diverse, 0.88 for homogeneous)
+- When `--diverse` is not active, D_m = 0.0 and CDI reduces to original weights
+
+### Changed — Validation Layers (6 → 7)
+- **Layer 7: Cross-Model Consistency** — agreement across different model families is stronger evidence; disagreement triggers escalated review. Claude-only claims flagged as potential training bias. External-only claims surfaced as potential blind spots
+
+### Changed — Flags (6 → 8)
+- New flags: `--diverse` (use multi-model panel), `--no-diverse` (suppress auto-detection under `--max`)
+- Allowed tools: added `Bash(gemini:*)` and `Bash(codex exec:*)` for external CLI calls
+
+### Changed
+- Version bump 7.1.0 → 7.2.0
+
 ## [v7.1.0](https://github.com/qinnovates/quorum/releases/tag/v7.1.0) — 2026-03-28
 
 ### Added — Structured Vote (Near-Consensus Tiebreaker)

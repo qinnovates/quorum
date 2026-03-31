@@ -2,3 +2,5 @@ _memory/
 _swarm/
 *.output
 .DS_Store
+__pycache__/
+*.pyc
