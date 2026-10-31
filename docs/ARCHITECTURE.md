@@ -4,6 +4,10 @@
 
 ---
 
+## Orchestrated Runs
+
+The optional `quorum-run` flow is a separate path from the prompt-driven phases in this document. See the run-flow, routing and trust-boundary diagrams in the [README](../README.md).
+
 ## Table of Contents
 
 - [Phase 0: Supervisor Setup](#phase-0-supervisor-setup)

@@ -2,6 +2,16 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.5.0 — Judge, routing and control center
+
+- **Final judge.** Runs on high stakes or a trigger with authors hidden, and prefers a model outside the panel. It can only withhold a verdict, using a source you verified. If a required review cannot run, no verdict is given. Why: one model should not override weighed evidence, and a skipped check should not pass silently.
+- **Escalation wired in.** Why: strong-model tokens should go where the decision needs them.
+- **Role routing.** Panels, Challengers and the judge use evidence for their role. Why: reputation is not evidence.
+- **Local control center.** A self-contained page with no server, scripts or network. Why: visibility should not add attack surface.
+- **`note`, `stop --yes` and `eval`.** Why: people stay in control, and token controls must prove themselves.
+- **Diagrams updated.** README diagrams end in the decision brief, with new run-flow, routing and trust-boundary diagrams. Why: diagrams should match what the code does.
+- **Known limit:** no eval results exist yet. They need real models and user cases.
+
 ## v7.4.1 — Review follow-ups
 
 - **Host panelists can challenge.** New `challenge` and `record-challenge` commands. Why: challenge rounds should not skip one side of the panel.

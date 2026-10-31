@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.4.1-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.5.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -28,6 +28,82 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
+## What's New in 7.5.0: Judge, Routing and Control Center
+
+| Feature | What it does | Why |
+|---|---|---|
+| Final judge | On high stakes or a trigger, a model reviews the verdict with authors hidden, preferring one outside the panel. It can withhold a verdict with a source from your `verified_sources`, but cannot choose one. If a required review cannot run, no verdict is given | A last check should catch errors without letting one model override the evidence |
+| Escalation | Disputed strong claims, cited opposition or `--ratify` send the review to your highest-ranked model | Spend strong-model tokens only where the decision needs them |
+| Role routing | Questions route as `research`, `architecture` or `code`. Challengers and the judge also route by role | Different work suits different models |
+| Control center | `quorum-run dashboard --run <id> --watch` writes a local page showing agents, scores, claims, spend and notes | You can see a run without opening a server or sending data anywhere |
+| Notes and stop | `quorum-run note` adds notes as data. `quorum-run stop --yes` stops a run before its next model call | People stay in control, and note text never becomes a command |
+| Eval harness | `quorum-run eval --cases <file>` scores a config, and `--baseline` rejects any change that loses recall or saves nothing | Token controls have to prove themselves |
+
+**Limits:** the eval harness is built, but no results exist yet because it needs real models and your own cases. The dashboard is read-only.
+
+### How an orchestrated run works
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#2B86C5', 'background': '#0d1117'}}}%%
+graph TD
+    Q["Your Question"] --> IN{"Intent step<br/><i>clear enough?</i>"}
+    IN -->|"Vague"| ASK["Asks you first"]
+    IN -->|"Clear"| PLAN["Set stakes, role,<br/>budgets and seats"]
+    PLAN --> P1["Independent answers<br/><i>same question, no shared answers</i>"]
+    P1 --> GATE{"Family floor<br/><i>enough families?</i>"}
+    GATE -->|"No"| FAIL["FAILED_DIVERSITY<br/><i>run stops</i>"]
+    GATE -->|"Yes"| CH["Challenge round<br/><i>authors hidden, sources required</i>"]
+    CH --> W["Evidence weighting<br/><i>each family counts once</i>"]
+    W --> TRIG{"Verdict, with high<br/>stakes or a trigger?"}
+    TRIG -->|"Yes"| J["Final judge<br/><i>can withhold, cannot choose</i>"]
+    TRIG -->|"No"| B["Decision Brief"]
+    J --> B
+    B --> OUT["Best-supported path<br/>or UNRESOLVED"]
+
+    style Q fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style IN fill:#E040FB,stroke:#AB00D9,color:#fff
+    style ASK fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style PLAN fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style P1 fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style GATE fill:#E040FB,stroke:#AB00D9,color:#fff
+    style FAIL fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style CH fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style W fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style TRIG fill:#E040FB,stroke:#AB00D9,color:#fff
+    style J fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style B fill:#00E5FF,stroke:#0097A7,color:#000
+    style OUT fill:#00E5FF,stroke:#0097A7,color:#000
+```
+
+### How tokens and models are chosen
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#2B86C5', 'background': '#0d1117'}}}%%
+graph LR
+    ST["Stakes"] --> BUD["Run budget"]
+    BUD --> PH["Phase budgets<br/><i>independent, challenge, judge</i>"]
+    ROLE["Task role"] --> EV{"Evidence for this role<br/><i>current and verified?</i>"}
+    EV -->|"Yes"| PR["Cheapest model<br/>above the bar"]
+    EV -->|"No"| UN["Cheapest eligible,<br/>marked unproven"]
+    PH & PR & UN --> CALL["Model call<br/><i>capped, then recorded</i>"]
+    CALL --> LED["Ledger<br/><i>by phase, role and model</i>"]
+    CALL --> STOP{"New evidence or<br/>verdict moving?"}
+    STOP -->|"Yes"| CALL
+    STOP -->|"No"| END["Stop spending"]
+
+    style ST fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style BUD fill:#E040FB,stroke:#AB00D9,color:#fff
+    style PH fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style ROLE fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style EV fill:#E040FB,stroke:#AB00D9,color:#fff
+    style PR fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style UN fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style CALL fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style LED fill:#00E5FF,stroke:#0097A7,color:#000
+    style STOP fill:#E040FB,stroke:#AB00D9,color:#fff
+    style END fill:#00E5FF,stroke:#0097A7,color:#000
+```
+
 ## What's New in 7.4.0: Model-Agnostic Orchestration
 
 Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give you one best-supported decision while spending as few tokens as it can, across models you choose.
@@ -50,7 +126,7 @@ Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give
 | Secrets boundary | Enforces redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config | In code, these protections no longer depend on a model following instructions |
 | Challengers | Renames "adversarial" agents | They test ideas to improve decisions, and the new name says so plainly |
 
-**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Today, runs route only the `research` role. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
+**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
 
 ## What's New in 7.3.1: Safety Corrections
 
@@ -206,7 +282,7 @@ graph LR
     S --> A5["Domain<br/>Outsider"]
     A1 & A2 & A3 & A4 & A5 --> D["Debate &<br/>Cross-Review"]
     D --> V["Validation<br/><i>fact-check claims</i>"]
-    V --> R["Verdict<br/><i>what survived<br/>scrutiny</i>"]
+    V --> R["Decision Brief<br/><i>best-supported path,<br/>case against, or UNRESOLVED</i>"]
 
     style Q fill:#FF3CAC,stroke:#D4006A,color:#fff
     style S fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -284,7 +360,7 @@ graph TD
     A1 & A2 & A3 & A4 & A5 --> DB["Debate<br/><i>pairs argue disagreements</i>"]
     DB --> BI["Bias Detection<br/><i>anchoring, confirmation,<br/>survivorship, base-rate</i>"]
     BI --> SC["Evidence Scorecard<br/><i>% sourced vs unsourced</i>"]
-    SC --> V["Verdict<br/><i>what survived + what's disputed +<br/>independence score + confidence</i>"]
+    SC --> V["Decision Brief<br/><i>best-supported path + what's disputed +<br/>what would change it + cost, or UNRESOLVED</i>"]
 
     style Q fill:#FF3CAC,stroke:#D4006A,color:#fff
     style S fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -490,7 +566,7 @@ graph LR
     D --> E["Cross-Review<br/>debate pairs argue"]
     E --> F["Synthesis<br/>editorial judgment"]
     F --> G["Validation<br/>fact-check"]
-    G --> H["Verdict"]
+    G --> H["Decision Brief"]
 
     style A fill:#FF3CAC,stroke:#D4006A,color:#fff
     style B fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -851,6 +927,32 @@ Swarm reports add:
 ## Bring Your Own Models Securely
 
 **Never hardcode an API key.** Not in code, config, prompts, URLs, commits or command lines. Keep keys in a vault you own, such as your OS keychain, 1Password, HashiCorp Vault, a cloud secret manager or SOPS/age. Quorum holds a reference and resolves the key only when it needs it. It stores no key on disk.
+
+### Trust boundaries
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#2B86C5', 'background': '#0d1117'}}}%%
+graph TD
+    V["Your vault"] -->|"reference resolved at call time"| O["quorum-run<br/><i>owns state, budgets, gates, verdict</i>"]
+    UC["User config<br/><i>providers, keys, evidence</i>"] --> O
+    PC["Project quorum.toml<br/><i>untrusted: can only tighten</i>"] --> O
+    O -->|"stdin, clean environment,<br/>empty folder"| CLI["Gemini and Codex CLIs"]
+    O -->|"HTTPS, key in header,<br/>no redirects"| API["OpenAI-compatible APIs"]
+    O -->|"localhost, no proxy"| LOC["Ollama"]
+    O -->|"issued prompt, recorded answer<br/><i>not observed by Quorum</i>"| HOST["Host subagents"]
+    CLI & API & LOC & HOST -->|"untrusted answers,<br/>redacted on arrival"| O
+    O --> FILES["Private run files<br/><i>state, events, dashboard</i>"]
+
+    style V fill:#00E5FF,stroke:#0097A7,color:#000
+    style O fill:#E040FB,stroke:#AB00D9,color:#fff
+    style UC fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style PC fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style CLI fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style API fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style LOC fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style HOST fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style FILES fill:#00E5FF,stroke:#0097A7,color:#000
+```
 
 ### Set up
 

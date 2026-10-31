@@ -13,9 +13,8 @@ from orchestrator.intent import assess_intent
 from orchestrator.limits import PhaseBudgets, RunLimits
 from orchestrator.providers import FakeProvider
 from orchestrator.router import Candidate
-from orchestrator.run import (
-    RunError, finish_run, issue_host_challenge, record_host_answer, record_host_challenge, start_run,
-)
+from orchestrator.conclude import finish_run, issue_host_challenge, record_host_challenge
+from orchestrator.run import RunError, record_host_answer, start_run
 from orchestrator.runstate import RunStore
 from orchestrator.tasktrack import TaskTrack
 from datetime import date
@@ -277,3 +276,152 @@ def test_host_challenge_disputes_other_families_once_per_seat(store):
     with pytest.raises(RunError, match="already"):
         record_host_challenge(state, config, store, reply)
     assert "did not take part" not in finish_run(state, config, store)
+
+
+HIGH = "For our production API, which database is best given a $100 budget limit and uptime as the goal?"
+
+
+def respond_with(ruling):
+    def respond(prompt):
+        if "independent judge" in prompt:
+            return json.dumps(ruling)
+        if "challenger" in prompt:
+            return json.dumps({"objections": []})
+        return answer("postgres")
+    return respond
+
+
+def high_config(ruling):
+    return config_for(FakeProvider("g", "gemini", respond_with(ruling)), FakeProvider("o", "openai", respond_with(ruling)))
+
+
+def test_judge_with_citation_withholds_the_verdict(store):
+    config = high_config({"agrees": False, "reason": "stale", "source": "https://example.org/j"})
+    config.verified_sources = frozenset({"https://example.org/j"})
+    state = start_run(config, HIGH, store)
+    assert "# Decision: UNRESOLVED" in finish_run(state, config, store)
+
+
+def test_judge_without_citation_cannot_change_the_verdict(store):
+    config = high_config({"agrees": False, "reason": "gut feel", "source": ""})
+    state = start_run(config, HIGH, store)
+    brief = finish_run(state, config, store)
+    assert "# Decision: postgres" in brief and "disagreed without a verified source" in brief
+
+
+def test_low_stakes_with_no_trigger_skips_the_judge(store):
+    config = high_config({"agrees": True})
+    state = start_run(config, QUESTION, store)
+    finish_run(state, config, store)
+    assert store.load(state.run_id).judge == {}
+
+
+def test_ratify_escalates_to_the_strongest_model(store):
+    config = high_config({"agrees": True})
+    state = start_run(config, QUESTION, store, ratify=True)
+    finish_run(state, config, store)
+    judge = store.load(state.run_id).judge
+    assert judge["provider"] == "o" and judge["why"].startswith("escalated")
+
+
+def test_failed_judge_is_reported(store):
+    config = high_config({})
+    state = start_run(config, HIGH, store)
+    brief = finish_run(state, config, store)
+    assert "# Decision: UNRESOLVED" in brief and "final review failed" in brief
+
+
+def test_panel_role_follows_the_question():
+    assert assess_intent(QUESTION).role == "architecture"
+    assert assess_intent("How should we refactor this function for our API under a budget limit as the goal?").role == "code"
+
+
+def test_dashboard_escapes_run_text_and_blocks_external_content(store):
+    from orchestrator.dashboard import render_dashboard
+    config = high_config({"agrees": True})
+    state = start_run(config, QUESTION + " <script>alert(1)</script>", store)
+    state.notes.append(f"<img src=x onerror=alert(1)> {CANARY}")
+    page = render_dashboard(state)
+    assert "<script>" not in page and "<img" not in page and CANARY not in page
+    assert "default-src 'none'" in page
+
+
+def test_eval_scores_an_arm_and_rejects_recall_loss(store, tmp_path):
+    from orchestrator.evaluation import EvalCase, control_passes, load_cases, run_arm
+    path = tmp_path / "cases.jsonl"
+    path.write_text(json.dumps({"question": QUESTION, "expected": "postgres"}) + "\n", encoding="utf-8")
+    assert load_cases(path)[0].expected == "postgres"
+    report = run_arm(high_config({"agrees": True}), load_cases(path), store)
+    assert report["recall"] == 1.0 and report["cost"] > 0
+    assert not control_passes(report, {"recall": 0.0, "cost": 1.0})
+
+
+def test_judge_prefers_a_model_outside_the_panel():
+    from orchestrator.judge import select_judge
+    from orchestrator.runstate import RunState, Seat
+    config = high_config({"agrees": True})
+    config.candidates.append(Candidate("spare", "mistral", frozenset(), 9, "s"))
+    state = RunState("0" * 16, "q", "high", "OPEN", [], {})
+    state.seats = [Seat("S1", "research", "g", "gemini", "m", "python", "p", "h", 1, "u", "r")]
+    state.seats.append(Seat("S2", "research", "o", "openai", "m", "python", "p", "h", 1, "u", "r"))
+    assert select_judge(config, state, ["x"], date(2026, 10, 31))[0] == "spare"
+
+
+def test_cited_opposition_triggers_the_judge(store):
+    from orchestrator.judge import escalation_signals
+    from orchestrator.runstate import RunState
+    claims = [
+        ScoredClaim("a", "a", "s", "STRONG", "win", "gemini"),
+        ScoredClaim("b", "b", "s", "STRONG", "win", "openai"),
+        ScoredClaim("c", "c", "s", "MODERATE", "lose", "meta"),
+    ]
+    brief = build_brief(claims, [], [])
+    state = RunState("0" * 16, "q", "low", "OPEN", [], {})
+    assert escalation_signals(state, claims, brief, config_for()).contradiction
+
+
+def test_stop_during_finish_gives_no_verdict(store):
+    calls = []
+    def respond(prompt):
+        calls.append(prompt)
+        if "challenger" in prompt:
+            store.request_cancel(state.run_id)
+            return json.dumps({"objections": []})
+        return answer("postgres")
+    config = config_for(FakeProvider("g", "gemini", respond), FakeProvider("o", "openai", respond))
+    state = start_run(config, QUESTION, store)
+    with pytest.raises(RunError, match="stopped"):
+        finish_run(state, config, store)
+    assert store.load(state.run_id).status == "CANCELLED"
+    assert sum("challenger" in c for c in calls) == 1
+
+
+def test_host_disputes_are_saved_for_the_dashboard(store):
+    gemini = FakeProvider("g", "gemini", lambda p: json.dumps({"objections": []}) if "challenger" in p else answer("postgres"))
+    config = config_for(gemini)
+    state = start_run(config, QUESTION, store, host_seats=1)
+    record_host_answer(state, config, store, "S2", state.seats[1].prompt_hash, answer("postgres", text="host view"))
+    rows = json.loads(issue_host_challenge(state, config).split("PAYLOAD: ", 1)[1])["claims"]
+    reply = json.dumps({"objections": [{"claim_id": rows[0]["id"], "reason": "r", "source": "https://example.org/z"}]})
+    record_host_challenge(state, config, store, reply)
+    finish_run(state, config, store)
+    assert any(c["is_disputed"] for c in store.load(state.run_id).claims)
+
+
+def test_eval_matches_unresolved_and_named_options(store):
+    from orchestrator.evaluation import EvalCase, _expected_verdict, run_arm
+    assert _expected_verdict(EvalCase("q", "UNRESOLVED")) == UNRESOLVED
+    assert _expected_verdict(EvalCase("q", "Use Postgres")) == "postgres"
+    with pytest.raises(ValueError, match="at least one"):
+        run_arm(config_for(), [], store)
+
+
+def test_zero_recall_never_passes():
+    from orchestrator.evaluation import control_passes
+    assert not control_passes({"recall": 0.0, "cost": 9.0}, {"recall": 0.0, "cost": 1.0})
+
+
+def test_only_finished_topics_count_as_reuse(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    assert start_run(config, QUESTION, store).reused_task is False
+    assert start_run(config, QUESTION, store).reused_task is False

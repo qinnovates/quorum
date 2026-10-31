@@ -7,16 +7,19 @@ or the verdict stops moving, so tokens are not spent on settled questions.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict
+from datetime import date
 
 from quorum_scorer import Claim
 
 from .config import Config
 from .decision import ScoredClaim, assign_tier, build_brief
 from .events import EventLog
+from .evidence import route_role
 from .handoff import build_handoff
 from .limits import PhaseBudgets
-from .providers import Result, estimate_tokens
+from .providers import Result, estimate_tokens, safe_complete
 from .runstate import RunState
 from .secrets import redact
 from .usage import charge_usage
@@ -39,7 +42,7 @@ def _pm_summary(config: Config, claims: list[ScoredClaim], state: RunState) -> s
     if estimate_tokens(fallback) + PM_OUTPUT_TOKENS > budgets.remaining("challenge"):
         return fallback
     prompt = "Summarize these claims in three neutral sentences. Do not judge them.\n" + fallback
-    result = provider.complete(redact(prompt), max_output_tokens=PM_OUTPUT_TOKENS)
+    result = safe_complete(provider, redact(prompt), PM_OUTPUT_TOKENS)
     charge_usage(state, config, "challenge", "pm", result)
     return result.text if result.ok else fallback
 
@@ -67,11 +70,17 @@ def new_disputes(result: Result, known: set[str]) -> set[str]:
     return found & known
 
 
-def _challenge_round(config: Config, state: RunState, claims: list[ScoredClaim], log: EventLog) -> set[str]:
+def _challenge_round(
+    config: Config, state: RunState, claims: list[ScoredClaim], log: EventLog,
+    is_cancelled: Callable[[], bool],
+) -> set[str]:
     budgets = PhaseBudgets(state.allowance, state.spent)
     disputes: set[str] = set()
     summary = _pm_summary(config, claims, state)
+    candidates = [c for c in config.candidates if c.name != config.pm_provider]
     for seat in [s for s in state.seats if s.attestation == "python" and s.status == "answered"]:
+        if is_cancelled():
+            break
         others = [c for c in claims if c.family != seat.family]
         if not others:
             continue
@@ -80,7 +89,12 @@ def _challenge_round(config: Config, state: RunState, claims: list[ScoredClaim],
         if estimate > budgets.remaining("challenge"):
             log.emit("budget_refused", phase="challenge", reason="challenge budget spent")
             break
-        result = config.providers[seat.provider].complete(prompt, max_output_tokens=seat.max_output_tokens)
+        route = route_role(
+            candidates, "challenger", frozenset(), config.evidence, config.role_bars,
+            date.today(), family=seat.family,
+        )
+        log.emit("route_decided", role="challenger", provider=route.provider, status=route.status, reason=route.reason)
+        result = safe_complete(config.providers[route.provider], prompt, seat.max_output_tokens)
         charge_usage(state, config, "challenge", "challenger", result)
         if result.ok:
             disputes |= new_disputes(result, {c.claim_id for c in others})
@@ -94,12 +108,15 @@ def with_disputes(claims: list[ScoredClaim], disputed: set[str]) -> list[ScoredC
     ]
 
 
-def run_challenges(config: Config, state: RunState, claims: list[ScoredClaim], log: EventLog) -> list[ScoredClaim]:
+def run_challenges(
+    config: Config, state: RunState, claims: list[ScoredClaim], log: EventLog,
+    is_cancelled: Callable[[], bool],
+) -> list[ScoredClaim]:
     """Stop when a round finds nothing new or the verdict stops moving."""
     verdict = build_brief(claims, [], []).verdict
     disputed: set[str] = set()
     for round_number in range(1, MAX_CHALLENGE_ROUNDS + 1):
-        found = _challenge_round(config, state, claims, log) - disputed
+        found = _challenge_round(config, state, claims, log, is_cancelled) - disputed
         disputed |= found
         claims = with_disputes(claims, disputed)
         new_verdict = build_brief(claims, [], []).verdict
