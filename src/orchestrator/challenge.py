@@ -22,6 +22,7 @@ from .secrets import redact
 from .usage import charge_usage
 
 MAX_CHALLENGE_ROUNDS = 2
+PM_OUTPUT_TOKENS = 120
 CHALLENGE_FORMAT = (
     'Return only JSON: {"objections": [{"claim_id": "...", "reason": "...", '
     '"source": "https URL, doi: or arxiv: id"}]}. Object only with a source.'
@@ -34,8 +35,11 @@ def _pm_summary(config: Config, claims: list[ScoredClaim], state: RunState) -> s
     provider = config.providers.get(config.pm_provider or "")
     if provider is None or not claims:
         return fallback
+    budgets = PhaseBudgets(state.allowance, state.spent)
+    if estimate_tokens(fallback) + PM_OUTPUT_TOKENS > budgets.remaining("challenge"):
+        return fallback
     prompt = "Summarize these claims in three neutral sentences. Do not judge them.\n" + fallback
-    result = provider.complete(redact(prompt), max_output_tokens=120)
+    result = provider.complete(redact(prompt), max_output_tokens=PM_OUTPUT_TOKENS)
     charge_usage(state, config, "challenge", "pm", result)
     return result.text if result.ok else fallback
 

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -64,6 +67,13 @@ class RunStore:
         path = self.root / run_id
         path.mkdir(exist_ok=True, mode=0o700)
         return path
+
+    @contextmanager
+    def locked(self, run_id: str) -> Iterator[None]:
+        """One writer at a time, so parallel records cannot lose a seat."""
+        with open(self.run_dir(run_id) / "lock", "w", encoding="utf-8") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
 
     def save(self, state: RunState) -> None:
         target = self.run_dir(state.run_id) / "state.json"

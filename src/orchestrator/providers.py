@@ -10,16 +10,14 @@ tests run offline. Live use needs the real service.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import tempfile
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Protocol
 
+from .http_transport import post_json
 from .secrets import Secret, SecretUnavailable, redact
 
 Families = frozenset(
@@ -108,8 +106,14 @@ def _failed(
         model_id=model_id,
         latency_s=time.monotonic() - started,
         ok=False,
+        usage_known=False,
         error=redact(f"{name}: {error}", known),
     )
+
+
+def _token_count(value: object) -> int:
+    """Provider usage is untrusted input: bad values count as unknown."""
+    return value if isinstance(value, int) and value >= 0 else 0
 
 
 def _usable_text(content: object) -> str | None:
@@ -159,8 +163,8 @@ class CliProvider:
                 (proc.stderr or "").strip()[:300] or f"exit {proc.returncode}",
                 started,
             )
-        output_cap = max_output_tokens * CHARS_PER_TOKEN_ESTIMATE
-        text = redact(proc.stdout.strip())[:output_cap]
+        raw_output = proc.stdout.strip()
+        text = redact(raw_output)[:max_output_tokens * CHARS_PER_TOKEN_ESTIMATE]
         if not text:
             return _failed(self.name, self.family, self.model_id, "empty response", started)
         return Result(
@@ -168,31 +172,10 @@ class CliProvider:
             family=self.family,
             model_id=self.model_id,
             tokens_in=estimate_tokens(prompt),
-            tokens_out=estimate_tokens(text),
+            tokens_out=estimate_tokens(raw_output),
             latency_s=time.monotonic() - started,
             usage_known=False,
         )
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Refuse redirects: urllib would forward Authorization to the new host."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "redirect refused", headers, fp)
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect)
-
-
-def _post_json(url: str, body: dict, timeout_s: float, headers: dict[str, str] | None = None) -> dict:
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", **(headers or {})},
-        method="POST",
-    )
-    with _OPENER.open(req, timeout=timeout_s) as resp:  # noqa: S310 - user-configured endpoint
-        return json.loads(resp.read().decode())
 
 
 @dataclass
@@ -205,7 +188,7 @@ class OllamaProvider:
     timeout_s: float = 120.0
     family: str = "ollama"
     capabilities: frozenset[str] = frozenset({"json_schema"})
-    transport: Callable[[str, dict, float], dict] = _post_json
+    transport: Callable[[str, dict, float], dict] = post_json
 
     def complete(self, prompt, *, max_output_tokens, output_schema=None):
         started = time.monotonic()
@@ -228,8 +211,8 @@ class OllamaProvider:
             text=redact(text),
             family=self.family,
             model_id=self.model_id,
-            tokens_in=int(data.get("prompt_eval_count", 0)),
-            tokens_out=int(data.get("eval_count", 0)),
+            tokens_in=_token_count(data.get("prompt_eval_count")),
+            tokens_out=_token_count(data.get("eval_count")),
             latency_s=time.monotonic() - started,
         )
 
@@ -245,7 +228,7 @@ class OpenAICompatibleProvider:
     api_key: Secret | None = None
     timeout_s: float = 120.0
     capabilities: frozenset[str] = frozenset({"json_schema"})
-    transport: Callable[[str, dict, float], dict] = _post_json
+    transport: Callable[[str, dict, float], dict] = post_json
 
     def complete(self, prompt, *, max_output_tokens, output_schema=None):
         started = time.monotonic()
@@ -278,13 +261,16 @@ class OpenAICompatibleProvider:
             return _failed(self.name, self.family, self.model_id, "empty response", started)
         known = self.api_key.known_values() if self.api_key else ()
         text = redact(text, known)
-        usage = data.get("usage") or {}
+        usage = data.get("usage")
+        usage = usage if isinstance(usage, dict) else {}
+        reported_in = _token_count(usage.get("prompt_tokens"))
+        reported_out = _token_count(usage.get("completion_tokens"))
         return Result(
             text=text,
             family=self.family,
             model_id=self.model_id,
-            tokens_in=int(usage.get("prompt_tokens", 0)) or estimate_tokens(prompt),
-            tokens_out=int(usage.get("completion_tokens", 0)) or estimate_tokens(text),
+            tokens_in=reported_in or estimate_tokens(prompt),
+            tokens_out=reported_out or estimate_tokens(text),
             latency_s=time.monotonic() - started,
-            usage_known=bool(usage),
+            usage_known=bool(reported_in and reported_out),
         )

@@ -39,18 +39,18 @@ Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give
 | Evidence weighting | Each family counts once per option, using the evidence tier Quorum assigns. Confidence, length and persona count add nothing | Otherwise confident or verbose answers win |
 | `UNRESOLVED` verdict | Reported when the evidence does not separate the options | Agreement is not proof, and forcing an answer misleads |
 | Model routing by evidence | Picks the cheapest model that clears a role's evidence bar. You supply the evidence. Without it, the model is marked `unproven` | Reputation is not evidence, and rankings go stale |
-| Token budgets | Stakes set the total. Phases get separate budgets, with a reserve for the final review | Early work should not consume what the decision needs |
+| Token budgets | Stakes set the total, and phases get separate budgets | Early work should not consume what the decision needs |
 | Stop rule | Challenge rounds end when nothing new appears or the verdict settles | Extra rounds on settled questions waste tokens |
 | Ledger | Reports tokens and cost by phase, role and model, and labels estimates | You cannot optimize what you cannot see. Prices are never guessed |
 | AI-aware handoff | Dedupes claims, keeps the strongest evidence, caps size, redacts and tags provenance | Agents should get what they need, not the full pool |
 | Open-source orchestrator | A local model through Ollama can write neutral summaries. It never judges | Cheap work should not use frontier tokens |
-| Tasktrack | Records topics researched and reuses only exact matches | Work should not be done twice, and similar questions may differ |
+| Tasktrack | Records topics researched and flags exact repeats in the brief | You should see when work was already done. Similar questions may differ, so nothing is merged automatically |
 | Intent step | Asks when a question is vague, or states its assumptions | A precise question saves more tokens than any later control |
 | Event log | Writes up to 12 event types, redacted, for any UI to read. Notes are data | A control center can come later without trusting note text as commands |
 | Secrets boundary | Enforces redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config | In code, these protections no longer depend on a model following instructions |
-| Challengers | Renames "adversarial" agents | They test ideas to improve decisions. The old word suggested an attack tool |
+| Challengers | Renames "adversarial" agents | They test ideas to improve decisions, and the new name says so plainly |
 
-**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
+**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, they skip the challenge round, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Today, runs route only the `research` role. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
 
 ## What's New in 7.3.1: Safety Corrections
 
@@ -858,11 +858,11 @@ Swarm reports add:
 2. Create `~/.config/quorum/quorum.toml` from `docs/quorum.example.toml`.
 3. Add providers below and set `[panel] min_families` and `[limits]`.
 
-Keep credential references and `family` labels in that user-level file. A `quorum.toml` in a project is treated as untrusted: it cannot use keys, declare families, lower the diversity floor or add unlisted commands. This stops a cloned repo sending your key to its own endpoint.
+All providers, keys, evidence and prices live in that user-level file, and `quorum-run` requires it. A `quorum.toml` in a project is untrusted: it can only raise `[panel] min_families` or lower `[limits]`. This stops a cloned repo sending your data or keys to its own endpoint, or forging evidence.
 
 ### Option A: your own open-source model (Ollama)
 
-Prompts stay on your machine, which makes this the most private option.
+Prompts stay on your machine, and loopback calls skip environment proxies. This is the most private option.
 
 ```toml
 [providers.local]

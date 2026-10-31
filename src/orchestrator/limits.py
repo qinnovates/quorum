@@ -1,4 +1,4 @@
-"""Run limits and subagent spawn caps (R5, and the budget part of R6).
+"""Run limits and subagent spawn caps.
 
 Limits are enforced in code. A refused spawn is recorded with its reason
 and never silently skipped, so a stopped run says why it stopped.

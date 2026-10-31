@@ -53,7 +53,7 @@
   - [Layer 4: Independent Validation](#layer-4-independent-validation-phase-5)
   - [Layer 5: Transparency in Output](#layer-5-transparency-in-output)
 - [Operational Definitions (v7.3.0)](#operational-definitions-v730)
-- [Scoring Stress-Test Model (v7.3.0)](#challenger-attack-model-v730)
+- [Scoring Stress-Test Model (v7.3.0)](#scoring-stress-test-model-v730)
 - [Prompt Templates](#prompt-templates)
   - [Research Agent Template](#research-agent-template)
   - [Analysis Agent Template](#analysis-agent-template)
@@ -1444,7 +1444,7 @@ Flag:
 4. Recommendations you disagree with and why
 5. One thing you'd add that no agent mentioned
 
-Be challenger. The swarm will respond to your critique, so make it count.
+Challenge it directly. The swarm will respond to your critique, so make it count.
 ```
 
 ---

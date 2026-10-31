@@ -15,7 +15,7 @@ All notable changes to Quorum are documented here.
 - **CI.** Tests run on pushes and pull requests.
 
 ### Changed
-- **"Adversarial" agents are now "Challengers".** Why: the word suggested an attack tool. They exist to test ideas. This replaces the v7.3.0 wording.
+- **"Adversarial" agents are now "Challengers".** Why: they exist to test ideas, and the new name says so plainly. This replaces the v7.3.0 wording.
 
 ### Known limits
 - Host subagents are reported to Quorum, not observed by it, and their usage is estimated.

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import shutil
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -28,9 +28,10 @@ from .router import Candidate
 from .secrets import Secret, from_command, from_env
 
 DEFAULT_MIN_FAMILIES = 2
-ALLOWED_PROVIDER_BINARIES = frozenset({"gemini", "codex"})
 ALLOWED_KEY_BINARIES = frozenset({"security", "secret-tool", "op", "vault", "sops", "aws", "gcloud"})
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+UNTRUSTED_SECTIONS = frozenset({"panel", "limits"})
+CLI_BINARY_FAMILIES = {"gemini_cli": ("gemini", "gemini"), "codex_cli": ("codex", "openai")}
 CREDENTIAL_REFERENCE_KEYS = frozenset({"api_key_env", "api_key_cmd"})
 _CREDENTIAL_KEY = re.compile(r"(?i)api_?key|token|secret|password|credential")
 _ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]*$")
@@ -76,15 +77,10 @@ def _validate_binary(name: str, argv: list[str], allowed: frozenset[str], field_
         )
 
 
-def _credential(name: str, spec: dict, trusted: bool) -> Secret | None:
+def _credential(name: str, spec: dict) -> Secret | None:
     present = CREDENTIAL_REFERENCE_KEYS & spec.keys()
     if not present:
         return None
-    if not trusted:
-        raise ConfigError(
-            f"providers.{name}: credential references are only read from user config, "
-            "because a cloned repo could otherwise send your key to its own endpoint"
-        )
     if len(present) > 1:
         raise ConfigError(f"providers.{name}: set api_key_env or api_key_cmd, not both")
     if "api_key_env" in spec:
@@ -96,7 +92,6 @@ def _credential(name: str, spec: dict, trusted: bool) -> Secret | None:
     _validate_binary(name, argv, ALLOWED_KEY_BINARIES, "api_key_cmd")
     return from_command(argv)
 
-_CLI_FAMILY_DEFAULTS = {"gemini_cli": "gemini", "codex_cli": "openai"}
 
 
 @dataclass
@@ -106,6 +101,7 @@ class Config:
     pm_provider: str | None = None
     evidence: list[RoleEvidence] = field(default_factory=list)
     role_bars: dict[str, float] = field(default_factory=dict)
+    verified_sources: frozenset[str] = frozenset()
     phase_shares: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_PHASE_SHARES))
     pricing: dict[str, Price] = field(default_factory=dict)
     confidence_floor: float | None = None
@@ -113,7 +109,7 @@ class Config:
     candidates: list[Candidate] = field(default_factory=list)
 
 
-def _build_provider(name: str, spec: dict, trusted: bool) -> Provider:
+def _build_provider(name: str, spec: dict) -> Provider:
     _reject_literal_credentials(name, spec)
     kind = spec["type"]
     declared_family = spec.get("family")
@@ -121,24 +117,22 @@ def _build_provider(name: str, spec: dict, trusted: bool) -> Provider:
         raise ValueError(
             f"provider {name!r}: unknown family {declared_family!r}; use one of {sorted(Families)}"
         )
-    if declared_family is not None and not trusted:
-        raise ConfigError(
-            f"providers.{name}.family is only read from user config; "
-            "a cloned repo must not claim diversity it does not have"
-        )
     caps = frozenset(spec.get("capabilities", []))
-    if kind in _CLI_FAMILY_DEFAULTS:
+    if kind in CLI_BINARY_FAMILIES:
         command = list(spec["command"])
         if any("{prompt}" in part for part in command):
             raise ConfigError(
                 f"providers.{name}.command must not contain {{prompt}}; prompts go over stdin"
             )
-        _validate_binary(name, command, ALLOWED_PROVIDER_BINARIES, "command")
+        binary, family = CLI_BINARY_FAMILIES[kind]
+        _validate_binary(name, command, frozenset({binary}), "command")
+        if declared_family not in (None, family):
+            raise ConfigError(f"providers.{name}: a {binary} command is family {family}")
         return CliProvider(
             name=name,
-            family=spec.get("family", _CLI_FAMILY_DEFAULTS[kind]),
+            family=family,
             command=command,
-            env_passthrough=tuple(spec.get("env_passthrough", ())) if trusted else (),
+            env_passthrough=tuple(spec.get("env_passthrough", ())),
             model_id=spec["model"],
             timeout_s=float(spec.get("timeout_s", 300)),
             capabilities=caps or frozenset({"web"}),
@@ -157,7 +151,7 @@ def _build_provider(name: str, spec: dict, trusted: bool) -> Provider:
             name=name,
             model_id=spec["model"],
             base_url=_validate_base_url(name, spec["base_url"]),
-            api_key=_credential(name, spec, trusted),
+            api_key=_credential(name, spec),
             family=spec.get("family", "other"),
             timeout_s=float(spec.get("timeout_s", 120)),
             capabilities=caps or frozenset({"json_schema"}),
@@ -169,6 +163,12 @@ def load(path: str | Path, *, trusted: bool = False) -> Config:
     """Load config. Only pass `trusted=True` for the user's own config file."""
     data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
 
+    if not trusted:
+        for section in data.keys() - UNTRUSTED_SECTIONS:
+            raise ConfigError(
+                f"{section} is only read from user config; "
+                "a project file may only tighten [panel] and [limits]"
+            )
     panel = data.get("panel", {})
     min_families = int(panel.get("min_families", DEFAULT_MIN_FAMILIES))
     if min_families < 1:
@@ -197,12 +197,13 @@ def load(path: str | Path, *, trusted: bool = False) -> Config:
         pm_provider=data.get("pm", {}).get("provider"),
         evidence=[RoleEvidence(**row) for row in data.get("evidence", [])],
         role_bars={k: float(v) for k, v in data.get("role_bars", {}).items()},
+        verified_sources=frozenset(str(s) for s in data.get("verified_sources", [])),
     )
     if "phase_shares" in data:
         config.phase_shares = {k: float(v) for k, v in data["phase_shares"].items()}
 
     for name, spec in data.get("providers", {}).items():
-        provider = _build_provider(name, spec, trusted)
+        provider = _build_provider(name, spec)
         config.providers[name] = provider
         config.candidates.append(
             Candidate(
@@ -213,4 +214,15 @@ def load(path: str | Path, *, trusted: bool = False) -> Config:
                 model_id=provider.model_id,
             )
         )
+    return config
+
+
+def tighten(config: Config, project: Config) -> Config:
+    """Apply a project file. It can only raise the floor and lower the limits."""
+    limits = {
+        f.name: min(getattr(config.limits, f.name), getattr(project.limits, f.name))
+        for f in fields(RunLimits)
+    }
+    config.min_families = max(config.min_families, project.min_families)
+    config.limits = replace(config.limits, **limits)
     return config

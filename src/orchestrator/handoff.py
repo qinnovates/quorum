@@ -1,4 +1,4 @@
-"""Compact handoff payloads between phases and agents (R2).
+"""Compact handoff payloads between phases and agents.
 
 Today every Phase 2 analysis agent receives the full Research Pool. This
 module builds a per-agent payload instead: deduplicated claims with stable
@@ -24,7 +24,7 @@ ID_HEX_CHARS = 10
 
 
 def _key(claim: Claim) -> tuple[str, str]:
-    text = re.sub(r"[^a-z0-9]+", " ", claim.text.lower()).strip()
+    text = re.sub(r"[\W_]+", " ", claim.text.lower()).strip()
     return text, (claim.source or "").strip().lower()
 
 

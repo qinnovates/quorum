@@ -1,4 +1,4 @@
-"""Per-run token and cost ledger (R4: token consumption by model).
+"""Per-run token and cost ledger.
 
 Prices are never hard-coded. They come from the config's pricing table,
 which must be filled from current published rates. A model with no

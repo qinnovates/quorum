@@ -16,8 +16,10 @@ from orchestrator.secrets import contains_credential  # noqa: E402
 
 BLOCKED_COMMANDS = (
     ("gh auth token", re.compile(r"\bgh\s+auth\s+token\b")),
-    ("printenv", re.compile(r"(?:^|[;&|(`]|\$\()\s*printenv\b")),
-    ("env dump", re.compile(r"(?:^|[;&|(`]|\$\()\s*env\s*(?:$|[;&|)>`])")),
+    ("printenv", re.compile(r"(?:^|[;&|(`]|\$\()\s*(?:\S*/)?printenv\b")),
+    ("env dump", re.compile(r"(?:^|[;&|(`]|\$\()\s*(?:\S*/)?env\s*(?:$|[;&|)>`])")),
+    ("export dump", re.compile(r"\bexport\s+-p\b")),
+    ("token display", re.compile(r"--show-token\b")),
     ("process environ read", re.compile(r"/proc/[^\s/]+/environ")),
 )
 
@@ -33,8 +35,10 @@ def block_reason(command: str) -> str | None:
 
 def main() -> int:
     try:
-        command = json.load(sys.stdin)["tool_input"]["command"]
-    except (json.JSONDecodeError, KeyError, TypeError):
+        command = json.loads(sys.stdin.buffer.read())["tool_input"]["command"]
+        if not isinstance(command, str):
+            raise TypeError("command is not a string")
+    except (ValueError, KeyError, TypeError):
         print("quorum guard: unreadable hook input; blocking", file=sys.stderr)
         return 2
     reason = block_reason(command)

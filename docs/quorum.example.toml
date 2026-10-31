@@ -1,6 +1,6 @@
 # quorum.toml: BYOAI configuration for the Quorum orchestrator.
 # Copy to ~/.config/quorum/quorum.toml and edit. Project-level files are untrusted. Nothing here is required
-# except the providers you use. Prices, the confidence floor and budgets have
+# except the providers you use. Prices and budgets have
 # no defaults on purpose: fill them from current published rates and the eval.
 
 [panel]
@@ -11,13 +11,7 @@ min_families = 2
 [limits]
 token_budget = 200000      # per run, across all agents
 max_agents = 8             # subagents spawned per run
-max_depth = 2              # nesting depth of spawned agents
 max_output_tokens = 2000   # per-agent output cap
-
-[escalation]
-# Verdict confidence below this escalates to the strongest model.
-# Leave unset until the eval sets it. While unset, the confidence trigger is off.
-# confidence_floor = 0.6
 
 # Per-model prices, USD per million tokens. Look up current published rates.
 # Models without a price are reported as unpriced; their cost is never guessed.
@@ -26,6 +20,9 @@ max_output_tokens = 2000   # per-agent output cap
 # output_per_mtok = 0.0
 
 # Local open-source orchestrator / PM. Never judges.
+[pm]
+provider = "pm"
+
 [providers.pm]
 type = "ollama"
 model = "<your-ollama-model>"
@@ -37,7 +34,7 @@ capabilities = ["json_schema"]
 [providers.gemini]
 type = "gemini_cli"
 model = "<gemini-model-id-to-confirm>"
-command = ["gemini", "--approval-mode", "plan", "-p", "Follow the instructions in the input."]
+command = ["gemini", "--skip-trust", "--approval-mode", "plan", "-p", "Follow the instructions in the input."]
 rank = 5
 capabilities = ["web", "json_schema"]
 

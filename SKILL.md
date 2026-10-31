@@ -391,10 +391,10 @@ The Auditor is isolated from the panel's deliberation to prevent anchoring (Lore
 
 If `quorum-run` is on PATH and a config exists, use it for `--diverse` runs. Python then holds state, budgets, gates and the verdict.
 
-1. Write the question to `_swarm/tmp/{run_id}-question.txt`, then run `quorum-run start --question-file <path> --host-seats <n>`.
+1. Write the question to `_swarm/tmp/{timestamp}-question.txt`, then run `quorum-run start --question-file <path> --host-seats <n>`.
 2. If the result has `action: ask`, put its `questions` to the user and stop.
 3. For each entry in `host_seats`, spawn one subagent with exactly that `prompt` and no tools. Give it no other agent's output.
-4. Save each answer to a file, then run `quorum-run record --run <id> --seat <seat> --prompt-hash <hash> --file <path>`. Do not retype answers.
+4. Save each answer to a file, then run `quorum-run record --run <id> --seat <seat> --prompt-hash <hash> --file <path>`. Do not retype answers. `quorum-run` deletes question and answer files after reading them.
 5. Run `quorum-run finish --run <id>` and show the returned `brief` verbatim. If it fails with `FAILED_DIVERSITY`, report that and stop.
 
 Never edit run state or choose the verdict yourself. Add `Bash(quorum-run:*)` to allowed tools to enable this flow.

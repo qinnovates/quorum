@@ -72,7 +72,7 @@ Epley, Waytz, and Cacioppo (2007) identified three factors that drive anthropomo
 
 Bender et al. (2021) coined "stochastic parrot" to describe systems that "stitch together sequences of linguistic forms according to probabilistic information about how they combine, but without any reference to meaning." The framing is most accurate for hallucination specifically: the model generates statistically plausible token sequences regardless of whether those sequences correspond to facts.
 
-This is why Quorum exists. Not because multi-agent debate eliminates hallucination — it cannot — but because structured structured challenge catches more errors than a single agent working alone. The Devil's Advocate, the evidence audit, the cross-review: these are human epistemics applied to a machine process. They work the same way peer review works in science — not by making individual humans infallible, but by making the collective process more reliable than any individual.
+This is why Quorum exists. Not because multi-agent debate eliminates hallucination — it cannot — but because structured challenge catches more errors than a single agent working alone. The Devil's Advocate, the evidence audit, the cross-review: these are human epistemics applied to a machine process. They work the same way peer review works in science — not by making individual humans infallible, but by making the collective process more reliable than any individual.
 
 *Sources: Epley et al. (2007), DOI:10.1037/0033-295X.114.4.864; Bender et al. (2021), DOI:10.1145/3442188.3445922*
 
@@ -82,8 +82,8 @@ No model is hallucination-free. Measured rates vary by task and benchmark:
 
 | Benchmark | Model | Hallucination Rate | Type |
 |-----------|-------|--------------------|------|
-| SimpleQA (Wei et al. 2024) | GPT-4o | ~61.8% incorrect/refused | Factual QA (challenger) |
-| SimpleQA | Claude 3.5 Sonnet | 36.1% confidently wrong | Factual QA (challenger) |
+| SimpleQA (Wei et al. 2024) | GPT-4o | ~61.8% incorrect/refused | Factual QA (adversarial benchmark) |
+| SimpleQA | Claude 3.5 Sonnet | 36.1% confidently wrong | Factual QA (adversarial benchmark) |
 | Vectara Leaderboard (2025) | GPT-4o | 9.6% | Summarization faithfulness |
 | Vectara Leaderboard | Gemini 2.5 Flash Lite | 3.3% | Summarization faithfulness |
 

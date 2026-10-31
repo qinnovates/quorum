@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets as stdlib_secrets
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import date
 
@@ -134,14 +134,24 @@ def _settle(state: RunState, config: Config, seat: Seat, result: Result, log: Ev
     log.emit("panelist_result", seat=seat.seat_id, status=seat.status, estimated=not result.usage_known)
 
 
+def _collect(future: Future, seat: Seat) -> Result:
+    """A provider bug fails its seat. It does not lose the other paid answers."""
+    try:
+        return future.result()
+    except Exception as exc:  # any provider defect must become a recorded failure
+        return Result("", seat.family, seat.model_id, ok=False, usage_known=False, error=type(exc).__name__)
+
+
 def _call_python_seats(config: Config, state: RunState, log: EventLog) -> None:
     seats = [s for s in state.seats if s.attestation == "python"]
     budgets = PhaseBudgets(state.allowance, state.spent)
     runnable = []
+    reserved = 0
     for seat in seats:
+        estimate = estimate_tokens(seat.prompt) + seat.max_output_tokens
         try:
-            budgets.authorize("independent", estimate_tokens(seat.prompt) + seat.max_output_tokens)
-            budgets.charge("independent", 0)
+            budgets.authorize("independent", reserved + estimate)
+            reserved += estimate
             runnable.append(seat)
         except SpawnRefused as exc:
             seat.status, seat.error = "failed", exc.reason
@@ -156,7 +166,7 @@ def _call_python_seats(config: Config, state: RunState, log: EventLog) -> None:
             for s in runnable
         }
     for seat in runnable:
-        _settle(state, config, seat, futures[seat.seat_id].result(), log)
+        _settle(state, config, seat, _collect(futures[seat.seat_id], seat), log)
 
 
 def record_host_answer(
@@ -171,6 +181,8 @@ def record_host_answer(
     if prompt_hash != seat.prompt_hash:
         raise RunError(f"prompt hash mismatch on {seat_id}; use the prompt the run issued")
     clean = redact(text)
+    if estimate_tokens(clean) > seat.max_output_tokens:
+        raise RunError(f"answer for {seat_id} exceeds its {seat.max_output_tokens} token cap")
     result = Result(
         clean, seat.family, seat.model_id, estimate_tokens(seat.prompt),
         estimate_tokens(clean), usage_known=False,
@@ -199,7 +211,7 @@ def _enforce_gate(state: RunState, config: Config, log: EventLog) -> None:
     log.emit("gate_passed", families=sorted({s.family for s in state.seats if s.status == "answered"}))
 
 
-def _collect_claims(state: RunState) -> list[ScoredClaim]:
+def _collect_claims(state: RunState, verified: frozenset[str]) -> list[ScoredClaim]:
     claims = []
     for seat in state.seats:
         if seat.status != "answered" or seat.answer is None:
@@ -209,18 +221,22 @@ def _collect_claims(state: RunState) -> list[ScoredClaim]:
             source = str(raw.get("source") or "")
             text = redact(raw["text"])
             cid = claim_id(Claim(text=text, source=source))
-            claims.append(ScoredClaim(cid, text, redact(source), assign_tier(source, frozenset()), option, seat.family))
+            claims.append(ScoredClaim(cid, text, redact(source), assign_tier(source, verified), option, seat.family))
     return claims
 
 
 def finish_run(state: RunState, config: Config, store: RunStore) -> str:
     """Enforce the gate, challenge the evidence, and render the decision brief."""
+    if state.status != "OPEN":
+        raise RunError(f"run already finished with status {state.status}")
     log = _log(store, state.run_id)
     try:
         _enforce_gate(state, config, log)
     finally:
         store.save(state)
-    claims = run_challenges(config, state, _collect_claims(state), log)
+    before = _collect_claims(state, config.verified_sources)
+    first_verdict = build_brief(before, [], []).verdict
+    claims = run_challenges(config, state, before, log)
     state.claims = [asdict(c) for c in claims]
     changes = [
         redact(str(s.answer["would_change"])) for s in state.seats
@@ -231,7 +247,14 @@ def finish_run(state: RunState, config: Config, store: RunStore) -> str:
     if host_seats:
         unknowns.append(f"{host_seats} seat(s) were reported by the host and not observed by Quorum.")
     unknowns += [f"{s.seat_id}: {s.route_reason}" for s in state.seats if s.route_status != "proven"][:3]
+    if state.reused_task:
+        unknowns.append("This exact topic was researched in an earlier run; check that result first.")
+    if any(s.attestation == "host" for s in state.seats):
+        unknowns.append("Host panelists did not take part in the challenge round.")
     brief = build_brief(claims, changes, unknowns)
+    if brief.verdict != first_verdict:
+        brief.verdict = UNRESOLVED
+        brief.unknowns.append("Unverified objections changed the outcome, so no verdict is given.")
     state.brief = render_brief(brief, usage_report(state))
     state.status = UNRESOLVED if brief.verdict == UNRESOLVED else "DONE"
     TaskTrack(store.root / "tasks.json").complete(state.question, [brief.verdict])

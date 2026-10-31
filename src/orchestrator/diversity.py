@@ -1,4 +1,4 @@
-"""Family-diversity guard (R1: fix the single-model echo chamber).
+"""Family-diversity guard.
 
 The guard counts distinct model families among panelists that answered.
 Below the configured floor the run fails loudly with FAILED_DIVERSITY. It

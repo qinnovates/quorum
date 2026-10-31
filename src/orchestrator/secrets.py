@@ -19,20 +19,24 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("PRIVATE_KEY", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)),
     ("ANTHROPIC", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}")),
     ("OPENAI", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}")),
-    ("STRIPE", re.compile(r"\b[rs]k_live_[A-Za-z0-9]{16,}")),
+    ("STRIPE", re.compile(r"\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}")),
     ("GITHUB", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})")),
     ("GITLAB", re.compile(r"\bglpat-[A-Za-z0-9_-]{16,}")),
     ("AWS", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
     ("SLACK", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}")),
     ("GOOGLE", re.compile(r"\bAIza[A-Za-z0-9_-]{30,}")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")),
+    ("NPM", re.compile(r"\bnpm_[A-Za-z0-9]{20,}")),
+    ("HUGGINGFACE", re.compile(r"\bhf_[A-Za-z0-9]{20,}")),
+    ("SLACK_WEBHOOK", re.compile(r"https://hooks\.slack\.com/services/\S+")),
+    ("BASIC", re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/]{8,}={0,2}")),
     ("BEARER", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}")),
     ("URL_USERINFO", re.compile(r"(?<=://)[^\s/@:]+:[^\s/@]+(?=@)")),
     (
         "ASSIGNMENT",
         re.compile(
             r"(?i)\b([a-z0-9_-]*(?:api[_-]?key|token|secret|password|passwd)[a-z0-9_-]*"
-            r"[\"']?\s*[:=]\s*[\"']?)[^\s\"'$]{8,}"
+            r"[\"']?\s*[:=]\s*[\"']?)(?!\$)[^\s\"']{8,}"
         ),
     ),
 )

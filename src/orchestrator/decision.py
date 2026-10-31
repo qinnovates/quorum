@@ -18,9 +18,11 @@ UNRESOLVED = "UNRESOLVED"
 TIER_WEIGHTS = {"STRONG": 1.0, "MODERATE": 0.6, "WEAK": 0.3, "UNVERIFIED": 0.1}
 DISPUTED_FACTOR = 0.5
 MIN_SEPARATION = 0.25
+MIN_VERDICT_SCORE = 0.5
 MAX_CLAIMS_PER_PANELIST = 8
 MIN_SCORED_ITEMS = 20
-_SOURCE = re.compile(r"(?i)^(https://|doi:|arxiv:)\S+")
+_SOURCE = re.compile(r"(?i)^(https://[^/\s.]+(\.[^/\s.]+)+(/\S*)?|doi:10\.\S+|arxiv:\d\S+)$")
+_OPTION_PREFIX = re.compile(r"^(use|choose|adopt|pick|go with)\s+")
 
 
 class AnswerError(ValueError):
@@ -70,7 +72,12 @@ def parse_answer(text: str) -> dict:
     claims = data.get("claims")
     if not isinstance(option, str) or not option.strip() or not isinstance(claims, list):
         raise AnswerError("answer needs an option and a claims list")
-    clean = [c for c in claims if isinstance(c, dict) and isinstance(c.get("text"), str)]
+    clean = [
+        c for c in claims
+        if isinstance(c, dict) and isinstance(c.get("text"), str) and c["text"].strip()
+    ]
+    if not clean:
+        raise AnswerError("answer needs at least one claim")
     data["claims"] = clean[:MAX_CLAIMS_PER_PANELIST]
     return data
 
@@ -83,7 +90,7 @@ def assign_tier(source: str, verified_sources: frozenset[str]) -> str:
 
 
 def normalize_option(option: str) -> str:
-    return re.sub(r"\s+", " ", option.strip().lower())
+    return _OPTION_PREFIX.sub("", re.sub(r"\s+", " ", option.strip().lower()))
 
 
 def score_options(
@@ -122,7 +129,7 @@ def build_brief(
     top = scores[0]
     runner = scores[1] if len(scores) > 1 else None
     is_close = runner is not None and top.score - runner.score < MIN_SEPARATION
-    verdict = UNRESOLVED if is_close else top.option
+    verdict = UNRESOLVED if is_close or top.score < MIN_VERDICT_SCORE else top.option
     return Brief(
         verdict=verdict,
         runner_up=runner.option if runner else None,
@@ -135,8 +142,13 @@ def build_brief(
     )
 
 
+def _one_line(text: str) -> str:
+    """Panel text cannot add headings or lines to the brief."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _bullets(title: str, rows: list[str]) -> list[str]:
-    return [f"**{title}**", *(f"- {row}" for row in rows), ""] if rows else []
+    return [f"**{title}**", *(f"- {_one_line(row)}" for row in rows), ""] if rows else []
 
 
 def render_brief(brief: Brief, usage: dict) -> str:
@@ -144,8 +156,8 @@ def render_brief(brief: Brief, usage: dict) -> str:
     score_rows = [f"{s.option}: {s.score} ({', '.join(s.families)})" for s in brief.scores]
     usage_rows = [f"{k}: {v}" for k, v in usage.items()]
     lines = [
-        f"# Decision: {brief.verdict}", "",
-        *( [f"Next-best option: {brief.runner_up}", ""] if brief.runner_up else [] ),
+        f"# Decision: {_one_line(brief.verdict)}", "",
+        *( [f"Next-best option: {_one_line(brief.runner_up)}", ""] if brief.runner_up else [] ),
         *_bullets("Why", brief.why),
         *_bullets("Strongest case against", brief.against),
         *_bullets("Raised by only one model family", brief.single_family),

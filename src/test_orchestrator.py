@@ -325,7 +325,7 @@ class TestConfig:
 
     def test_example_config_loads_and_leaves_unset_values_unset(self):
         example = Path(__file__).resolve().parent.parent / "docs" / "quorum.example.toml"
-        cfg = load(example)
+        cfg = load(example, trusted=True)
         assert cfg.min_families == 2
         assert cfg.confidence_floor is None
         assert cfg.pricing == {}
@@ -333,7 +333,7 @@ class TestConfig:
     def test_loads_providers_limits_and_pricing(self, tmp_path):
         path = tmp_path / "quorum.toml"
         path.write_text(CONFIG_TOML, encoding="utf-8")
-        cfg = load(path)
+        cfg = load(path, trusted=True)
         assert cfg.min_families == 2
         assert cfg.limits.max_agents == 4
         assert cfg.pricing["gemini-2.5-pro"].output_per_mtok == 10.0
@@ -351,7 +351,7 @@ class TestConfig:
         path = tmp_path / "quorum.toml"
         path.write_text('[providers.x]\ntype = "mystery"\nmodel = "m"\n', encoding="utf-8")
         with pytest.raises(ValueError, match="unknown provider type"):
-            load(path)
+            load(path, trusted=True)
 
 
 # --- Regressions from the integration review ---------------------------------
@@ -404,7 +404,7 @@ class TestRegressions:
         path = tmp_path / "quorum.toml"
         path.write_text('[providers.x]\ntype = "ollama"\nmodel = "m"\nfamily = "claudee"\n', encoding="utf-8")
         with pytest.raises(ValueError, match="unknown family"):
-            load(path)
+            load(path, trusted=True)
 
     def test_min_families_defaults_to_two(self, tmp_path):
         path = tmp_path / "quorum.toml"

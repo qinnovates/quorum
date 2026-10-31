@@ -1,4 +1,4 @@
-"""Model routing (R6): cheapest adequate adapter, escalate only on a trigger.
+"""Model routing: cheapest adequate adapter, escalate only on a trigger.
 
 `rank` is declared in the config (lower is cheaper). The router never
 guesses prices. Escalation thresholds come from the eval; the confidence
