@@ -3,7 +3,7 @@ name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
 argument-hint: '"your question" [--max] [--ratify] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run] [--diverse] [--no-diverse]'
 disable-model-invocation: false
-version: 7.3.1
+version: 7.4.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -16,6 +16,7 @@ allowed-tools:
   - Write
   - Bash(gemini:*)
   - Bash(codex exec:*)
+  - Bash(quorum-run:*)
 ---
 
 # Quorum
@@ -33,7 +34,7 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs on GitHub](https://gith
 | Command | What Happens | Agents |
 |---------|-------------|--------|
 | `/quorum "question"` | 5 SMEs debate, supervisor synthesizes | 5 (research-backed default) |
-| `/quorum "question" --max` | Full adversarial-driven convergence, teams if needed | 7-15 recommended (supervisor decides, user can override higher) |
+| `/quorum "question" --max` | Full challenge-driven convergence, teams if needed | 7-15 recommended (supervisor decides, user can override higher) |
 | `/quorum "question" --reviewers` | Top-down sequential review pipeline, auto-decide, surface taste calls only | 3-5 phases (topic-driven) |
 | `/quorum "question" --set 200` | Custom scale — swarm auto-engages at 20+ | User-defined |
 
@@ -43,13 +44,13 @@ That's it. The supervisor handles everything else: mode, structure, rigor, resea
 
 | Tier | Agents | Research Basis |
 |------|--------|---------------|
-| Default | 5 | Woolley et al. 2010 (collective intelligence peaks with equal conversational turns in small groups); Du et al. 2023 (3-agent AI debate optimum + supervisor + adversarial = 5) |
+| Default | 5 | Woolley et al. 2010 (collective intelligence peaks with equal conversational turns in small groups); Du et al. 2023 (3-agent AI debate optimum + supervisor + challenger = 5) |
 | Max | 7-15 (recommended) | 7 = synchronous ceiling before conversational inequality (Dunbar layer 1); 15 = Delphi panel optimum (Linstone & Turoff 2002). User can request more — supervisor scales to `--max N` if specified |
 | Set N | User-defined | At 20+, swarm architecture auto-engages: MECE taxonomy partitioning, environment-based coordination, pattern detection |
 
-### Mandatory Adversarial Minimum: 2
+### Mandatory Challenger Minimum: 2
 
-Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
+Every panel of 5+ agents includes at least 2 Challengers. Not 1.
 
 - Asch (1951): A single dissenter reduces conformity from 32% to 5%
 - Moscovici (1969): A minority of 2 establishes a credible pattern — 1 is dismissed as eccentric
@@ -78,7 +79,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
-| Any question at `--max` | Adversarial-driven convergence (converse internally) | `--max` always uses iterative rounds |
+| Any question at `--max` | Challenge-driven convergence (converse internally) | `--max` always uses iterative rounds |
 | Any question at `--set 20+` | Swarm (MECE taxonomy + environment) | Agent count ≥ 20 |
 | 3+ domains detected | Teams (internal deliberation, cross-challenge) | Supervisor detects domain count in Phase 0.5 |
 | Forecasting question at `--set` | Prediction mode (sentiment + coalitions) | "Will X happen", "by 2028", future-tense patterns |
@@ -89,7 +90,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 # Quick opinion — 5 agents, done in 2 minutes
 /quorum "Should we use PostgreSQL or DynamoDB for our new service?"
 
-# Stress-test a decision — full adversarial-driven convergence
+# Stress-test a decision — full challenge-driven convergence
 /quorum "Should we build or buy our auth system?" --max
 
 # Build something — auto-detects hackathon mode, generates battle-tested PRD
@@ -133,7 +134,7 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
    - Bite-sized tasks (one action each, 2-5 minutes)
    - Each task: write failing test → verify fail → implement → verify pass → commit
    - Machine-verifiable acceptance criteria (not "works correctly" but "returns 200 with valid JWT containing user_id claim")
-3. **Adversarial-driven convergence** stress-tests the PRD (only with `--max`):
+3. **Challenge-driven convergence** stress-tests the PRD (only with `--max`):
    - Architect: "Are the boundaries right? Missing abstractions?"
    - Breaker: "Which acceptance criteria are ambiguous? Edge cases?"
    - TDD Enforcer: "Is every task actually testable? Assertions specific enough?"
@@ -155,7 +156,7 @@ Earlier versions shipped a shell script (the "Ralph loop") that called `claude -
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
 | PRD generation | 5 agents (lighter) | 7-15 agents (full decomposition) |
-| Stress-test | No adversarial review | Full convergence (Architect + Breaker + TDD Enforcer + Pragmatist + Judge) |
+| Stress-test | No challenge review | Full convergence (Architect + Breaker + TDD Enforcer + Pragmatist + Judge) |
 | Output quality | Good for small features | Battle-tested for production systems |
 
 **Trigger keywords:** `build`, `implement`, `create`, `add feature`, `scaffold`, `write a`, `set up` — anything that signals "I want code output, not analysis."
@@ -307,10 +308,10 @@ Options: [Approve all] [Override specific] [Send back to phase N] [Reject]
 
 ### --reviewers vs Default vs --max
 
-| | Default (horizontal) | --max (adversarial) | --reviewers (vertical) |
+| | Default (horizontal) | --max (challenger) | --reviewers (vertical) |
 |--|---------------------|--------------------|-----------------------|
 | Topology | Flat panel | Iterative convergence | Sequential cascade |
-| Agent relationship | Peers debate | Adversarial agents vs defenders | Each builds on previous |
+| Agent relationship | Peers debate | Challengers vs defenders | Each builds on previous |
 | Decision style | Emerges from debate | Survives sustained attack | Auto-decided, taste surfaced |
 | Best for | Ambiguous questions | Stress-testing decisions | Reviewing concrete artifacts |
 | Output | Synthesized verdict | Converged/tension/exhausted | Approved with overrides |
@@ -386,9 +387,21 @@ The Auditor is isolated from the panel's deliberation to prevent anchoring (Lore
 | `--max --diverse` | ~71K Claude + external | ~1.0x net |
 | `--max --diverse --ratify` | ~71K + auditor + cold-review | ~1.1x net |
 
+## Orchestrated Runs (when `quorum-run` is installed)
+
+If `quorum-run` is on PATH and a config exists, use it for `--diverse` runs. Python then holds state, budgets, gates and the verdict.
+
+1. Write the question to `_swarm/tmp/{timestamp}-question.txt`, then run `quorum-run start --question-file <path> --host-seats <n>`.
+2. If the result has `action: ask`, put its `questions` to the user and stop.
+3. For each entry in `host_seats`, spawn one subagent with exactly that `prompt` and no tools. Give it no other agent's output.
+4. Save each answer to a file, then run `quorum-run record --run <id> --seat <seat> --prompt-hash <hash> --file <path>`. Do not retype answers. `quorum-run` deletes question and answer files after reading them.
+5. Run `quorum-run finish --run <id>` and show the returned `brief` verbatim. If it fails with `FAILED_DIVERSITY`, report that and stop.
+
+Never edit run state or choose the verdict yourself. Add `Bash(quorum-run:*)` to allowed tools to enable this flow.
+
 ## Multi-Model Diversity (--diverse)
 
-All Quorum agents are Claude subagents. CDP profiles and mandatory adversarial change what Claude *says*, not what Claude *believes*. On topics where Claude has strong RLHF-shaped priors (politics, ethics, social policy), this creates an echo chamber — articulate consensus rather than genuine deliberation.
+All Quorum agents are Claude subagents. CDP profiles and mandatory challenger change what Claude *says*, not what Claude *believes*. On topics where Claude has strong RLHF-shaped priors (politics, ethics, social policy), this creates an echo chamber — articulate consensus rather than genuine deliberation.
 
 `--diverse` injects genuine prior diversity by replacing 2 agent slots with Gemini and Codex (OpenAI) via their CLIs. Different training data, different RLHF, different blind spots.
 
@@ -576,17 +589,17 @@ MODEL DIVERSITY ANALYSIS
 
 ### Default (5 agents)
 
-1. **Setup + Vagueness Gate** — Supervisor analyzes the question. If the prompt is too vague to produce a useful verdict (no scope, no constraints, no success criteria), the supervisor asks 2-4 targeted clarifying questions before spawning agents. Picks 5 SMEs with diverse perspectives. Minimum 2 adversarial.
+1. **Setup + Vagueness Gate** — Supervisor analyzes the question. If the prompt is too vague to produce a useful verdict (no scope, no constraints, no success criteria), the supervisor asks 2-4 targeted clarifying questions before spawning agents. Picks 5 SMEs with diverse perspectives. Minimum 2 challenger.
 2. **Independent work** — All agents work in parallel. No one sees anyone else's output.
 3. **Triage** — Supervisor reads all reports, builds claim pool (text + source + direction for every factual claim), identifies key disagreements.
 4. **Cross-review** — Debate pairs argue. Devil's Advocate challenges the majority. Critics must counter-propose, not just attack.
 5. **Synthesis + Drift Detection** — Supervisor authors the verdict, then diffs every claim against the Phase 1 claim pool. Unsourced expansions (DRIFT) are auto-corrected: web-searched, sourced, or removed. Inverted findings are corrected to match source direction. Resolved drift diff included in verdict.
-6. **Validation** — Web fact-check (preferred) or adversarial agent review.
+6. **Validation** — Web fact-check (preferred) or Challenger review.
 7. **Final report** — What survived, what's disputed, drift diff (auto-corrected + unresolved), what to do next.
 
 ### Max (7-15 recommended, scalable)
 
-`--max` always runs **adversarial-driven convergence** — the full panel iterates across rounds until a solution survives sustained attack. The supervisor also auto-selects the right structure.
+`--max` always runs **challenge-driven convergence** — the full panel iterates across rounds until a solution survives sustained attack. The supervisor also auto-selects the right structure.
 
 **Scaling beyond 15:**
 
@@ -605,7 +618,7 @@ By default, the supervisor picks 7-15 agents based on question complexity. To go
 
 `--max --set N` combines deep deliberation (iterative rounds, convergence scoring) with custom scale. At 20+, swarm architecture auto-engages (MECE partitioning, environment coordination). The 15-agent recommended ceiling exists because conversational inequality increases with group size (Dunbar layer 1) — but for research landscapes, red-team exercises, or prediction markets, larger panels are justified.
 
-**Adversarial-driven convergence (always at --max):**
+**Challenge-driven convergence (always at --max):**
 
 | Role | What They Do |
 |------|-------------|
@@ -615,7 +628,7 @@ By default, the supervisor picks 7-15 agents based on question complexity. To go
 | **Synthesizer** | Reports what survived and what collapsed at checkpoints. |
 | **Judge** | Neutral arbiter. Computes convergence score. Ends when C ≥ 0.8 (max 6 rounds). |
 
-**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed — must include what WOULD work. No free nihilism. 40/60 adversarial ratio (Nemeth 2001, Liang 2023).
+**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed — must include what WOULD work. No free nihilism. 40/60 challenger ratio (Nemeth 2001, Liang 2023).
 
 **Four outcomes:** CONVERGED (survived attack) / **VOTE** (near-consensus tiebreaker) / TENSION (irreducible tradeoff — user decides) / EXHAUSTED (diminishing returns).
 
@@ -662,7 +675,7 @@ Thresholds:
   C* < 0.5 after 3+ rounds → check for TENSION or EXHAUSTED
 ```
 
-**Why these weights:** Agreement growth (0.6) is the primary signal — it directly measures whether critics are running out of attacks. Defense success (0.4) measures solution robustness under adversarial pressure. Novelty decay (N) was removed from the score because it correlates >0.9 with A (as claims stabilize, new arguments also decline). N is retained as a termination signal — if agents stop producing new arguments for 2 consecutive rounds, the deliberation ends regardless of C.
+**Why these weights:** Agreement growth (0.6) is the primary signal — it directly measures whether critics are running out of attacks. Defense success (0.4) measures solution robustness under challenger pressure. Novelty decay (N) was removed from the score because it correlates >0.9 with A (as claims stabilize, new arguments also decline). N is retained as a termination signal — if agents stop producing new arguments for 2 consecutive rounds, the deliberation ends regardless of C.
 
 ### Cognitive Diversity Profiles (CDP)
 
@@ -820,7 +833,7 @@ I < 0.4  → LOW → trigger: supervisor re-examines whether agents were given e
 2. **Contradiction Check** — catches agents agreeing without evidence
 3. **Hallucination Red Flags** — fabricated citations, too-clean stats, universal claims
 4. **Research Drift Diff** — tracks claims added between Phase 1→4. New unsourced claims = DRIFT (flagged). Inverted findings = CRITICAL (blocks delivery). Diff presented to user for validation before synthesis is final. See [full spec →](docs/ARCHITECTURE.md#layer-35-research-drift-diff-supervisor-integrated-phase-45)
-5. **Adversarial Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
+5. **Challenger Validation** — web fact-check preferred; same-session agent review as fallback (prompt-level independence, not structural)
 6. **Transparency** — Evidence Scorecard + Independence Score + Bias Flags + Drift Diff in every report
 7. **Cross-Model Consistency** _(--diverse only)_ — Agreement across different model families (Claude, Gemini, Codex) is stronger evidence than within-model agreement. Disagreement triggers `CROSS_MODEL_DIVERGENCE` flag and escalated review. Claude-only claims are flagged as potential training bias. External-only claims are surfaced as potential blind spots. Model Diversity Report included in final output
 
@@ -830,7 +843,7 @@ I < 0.4  → LOW → trigger: supervisor re-examines whether agents were given e
 2. **Classification scores the question, not the project.** Business question in a research repo gets business agents.
 3. **Condition-based outsider injection.** High consensus + low challenge → inject lateral thinker.
 4. **Exploratory queries invert the profile.** "What am I missing?" spawns from domains the profile doesn't list.
-5. **Adversarial agents are immune to pruning.** Devil's Advocate and Provocateur always survive.
+5. **Challengers are immune to pruning.** Devil's Advocate and Provocateur always survive.
 6. **Inverted early termination.** Unanimous consensus = highest-risk scenario. Scrutiny goes UP.
 
 ## Safety

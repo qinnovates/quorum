@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.3.1-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.4.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -14,7 +14,7 @@ Ask 5 AI agents the same question and you get 5 answers that sound different but
 
 The psychology: a group's IQ is not the average of its members' IQs. It's an emergent property of *how they communicate*. Groups where every participant contributes equally are measurably smarter than groups dominated by one expert, even the smartest person in the room (Woolley et al. 2010, 699 subjects). Quorum enforces equal turns structurally, not by suggestion.
 
-The philosophy: Socrates didn't lecture. He questioned. He found what you believed and asked why until the belief either held or collapsed. Plato documented the method. 2,400 years later, academics still use it because nothing better has replaced it. Quorum's adversarial agents do the same thing. They don't just disagree. They ask "why does this hold?" and "what breaks it?" until the answer either survives or doesn't.
+The philosophy: Socrates didn't lecture. He questioned. He found what you believed and asked why until the belief either held or collapsed. Plato documented the method. 2,400 years later, academics still use it because nothing better has replaced it. Quorum's Challengers do the same thing. They don't just disagree. They ask "why does this hold?" and "what breaks it?" until the answer either survives or doesn't.
 
 The math: every synthesis is scored by a convergence formula, checked for 4 cognitive biases, measured for agent independence, and graded by evidence sourcing. Not vibes. Not vote counts. Measured signals with thresholds that determine whether a conclusion is battle-tested or still contested. [Full methodology ->](docs/ARCHITECTURE.md#convergence-detection)
 
@@ -27,6 +27,30 @@ The result: answers that have been **questioned, attacked, defended, and validat
 Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
+
+## What's New in 7.4.0: Model-Agnostic Orchestration
+
+Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give you one best-supported decision while spending as few tokens as it can, across models you choose.
+
+| Feature | What it does | Why |
+|---|---|---|
+| Family diversity floor | Stops with `FAILED_DIVERSITY` if too few model families answer, and needs at least one model that Quorum called directly | Five personas on one model are still one model |
+| Decision brief | Gives a recommendation, next-best option, case against, what would change it, unknowns and spend | People need a decision they can act on, not a debate transcript |
+| Evidence weighting | Each family counts once per option, using the evidence tier Quorum assigns. Confidence, length and persona count add nothing | Otherwise confident or verbose answers win |
+| `UNRESOLVED` verdict | Reported when the evidence does not separate the options | Agreement is not proof, and forcing an answer misleads |
+| Model routing by evidence | Picks the cheapest model that clears a role's evidence bar. You supply the evidence. Without it, the model is marked `unproven` | Reputation is not evidence, and rankings go stale |
+| Token budgets | Stakes set the total, and phases get separate budgets | Early work should not consume what the decision needs |
+| Stop rule | Challenge rounds end when nothing new appears or the verdict settles | Extra rounds on settled questions waste tokens |
+| Ledger | Reports tokens and cost by phase, role and model, and labels estimates | You cannot optimize what you cannot see. Prices are never guessed |
+| AI-aware handoff | Dedupes claims, keeps the strongest evidence, caps size, redacts and tags provenance | Agents should get what they need, not the full pool |
+| Open-source orchestrator | A local model through Ollama can write neutral summaries. It never judges | Cheap work should not use frontier tokens |
+| Tasktrack | Records topics researched and flags exact repeats in the brief | You should see when work was already done. Similar questions may differ, so nothing is merged automatically |
+| Intent step | Asks when a question is vague, or states its assumptions | A precise question saves more tokens than any later control |
+| Event log | Writes up to 12 event types, redacted, for any UI to read. Notes are data | A control center can come later without trusting note text as commands |
+| Secrets boundary | Enforces redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config | In code, these protections no longer depend on a model following instructions |
+| Challengers | Renames "adversarial" agents | They test ideas to improve decisions, and the new name says so plainly |
+
+**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, they skip the challenge round, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Today, runs route only the `research` role. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
 
 ## What's New in 7.3.1: Safety Corrections
 
@@ -52,7 +76,7 @@ Say "build" and Quorum becomes a hackathon team. No flags, no config — just de
 Quorum auto-detects implementation intent and runs the hackathon pipeline:
 
 1. **Decomposition agent** breaks your idea into a PRD with TDD enforcement — exact file paths, bite-sized tasks, machine-verifiable acceptance criteria
-2. **Adversarial stress-test** (`--max`) — Architect, Breaker, TDD Enforcer, Pragmatist, and Judge attack the PRD until it survives or gets rewritten
+2. **Challenger stress-test** (`--max`) — Architect, Breaker, TDD Enforcer, Pragmatist, and Judge attack the PRD until it survives or gets rewritten
 3. **Output** — a battle-tested `_swarm/prd-*.md` ready for implementation
 4. **You execute it** in Claude Code, in the permission mode you choose. Auto mode runs the tasks unattended; read the consent warning first.
 
@@ -77,7 +101,7 @@ From "Build X" to a battle-tested PRD. One command. The decision to run it unatt
 
 ```
 ═══════════════════════════════════════════════════
-QUORUM VERDICT — 5 agents, 2 adversarial, 1 round
+QUORUM VERDICT — 5 agents, 2 challenger, 1 round
 ═══════════════════════════════════════════════════
 
 EXECUTIVE SUMMARY
@@ -86,7 +110,7 @@ using an AI coding assistant to build a custom solution beats
 adopting an off-the-shelf SaaS for this use case. The workflow is
 specific enough that no existing tool fits without heavy
 customization, and AI-assisted development now closes the build
-vs. buy gap to under a week. The adversarial agent (Product
+vs. buy gap to under a week. The Challenger (Product
 Strategist) argued buy-first to validate demand before investing
 engineering time.
 
@@ -118,7 +142,7 @@ Quorum works on any question worth debating. Here are five:
 
 | | Question | Why Quorum beats a single AI |
 |---|---|---|
-| **Product** | *"Should we launch with a free tier or paid-only?"* | A single agent defaults to "free tier for growth." Quorum's adversarial agents stress-test unit economics, conversion assumptions, and support cost — so you get the tradeoffs, not just the popular answer |
+| **Product** | *"Should we launch with a free tier or paid-only?"* | A single agent defaults to "free tier for growth." Quorum's Challengers stress-test unit economics, conversion assumptions, and support cost — so you get the tradeoffs, not just the popular answer |
 | **Growth** | *"What's the best channel to acquire our first 1,000 users?"* | One agent gives you a generic list. Quorum agents argue paid vs. organic vs. community with actual CAC estimates, surface which channels are saturated, and flag the ones where your specific audience actually lives |
 | **Content** | *"Is this blog post ready to publish?"* | One agent says "looks good!" Quorum agents review for factual accuracy, tone consistency, SEO gaps, and audience fit — then disagree about what "ready" means until the weak spots are exposed |
 | **Data** | *"Which metrics should we track for our MVP launch?"* | A single agent gives you the standard vanity metrics. Quorum's panel debates leading vs. lagging indicators, argues about what's actually measurable at your stage, and kills the metrics that sound good but drive no decisions |
@@ -150,7 +174,7 @@ You already know single-agent AI hallucinates. So you try multi-agent. You split
 
 **The missing challenge problem.** Splitting work and merging results is collaboration. It is not scrutiny. Nobody asked "what if this is wrong?" Nobody tested whether the conclusion survives attack. Nobody checked if the sources actually say what the agents claim they say. The answer was assembled, not stress-tested.
 
-**The groupthink problem.** When all agents converge on the same answer, most tools treat that as high confidence. Quorum treats it as the highest-risk scenario. Unanimous consensus triggers MORE scrutiny, not less. Because in groups, agreement without challenge is the most dangerous signal there is (Janis 1972). Quorum's 6 anti-boxing rules structurally prevent echo chambers: domain outsiders are injected from outside your profile, adversarial agents can never be pruned for "efficiency," and exploratory queries invert the agent roster to spawn perspectives you didn't ask for.
+**The groupthink problem.** When all agents converge on the same answer, most tools treat that as high confidence. Quorum treats it as the highest-risk scenario. Unanimous consensus triggers MORE scrutiny, not less. Because in groups, agreement without challenge is the most dangerous signal there is (Janis 1972). Quorum's 6 anti-boxing rules structurally prevent echo chambers: domain outsiders are injected from outside your profile, Challengers can never be pruned for "efficiency," and exploratory queries invert the agent roster to spawn perspectives you didn't ask for.
 
 ### How every other AI tool works
 
@@ -196,7 +220,7 @@ graph LR
     style R fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
-Five experts. Independent work. Mandatory adversarial. The answer that survives pushback is the one worth trusting.
+Five experts. Independent work. Mandatory challenger. The answer that survives pushback is the one worth trusting.
 
 ---
 
@@ -223,7 +247,7 @@ graph LR
     style R fill:#333,stroke:#555,color:#aaa
 ```
 
-Split task, collect parts, merge. Great for parallelizing work. But no agent challenges another. No adversarial review. No fact-checking. If all 3 hallucinate the same thing, you get a confident, well-formatted wrong answer.
+Split task, collect parts, merge. Great for parallelizing work. But no agent challenges another. No challenge review. No fact-checking. If all 3 hallucinate the same thing, you get a confident, well-formatted wrong answer.
 
 **Other multi-agent solutions** (sequential review pipelines):
 
@@ -254,8 +278,8 @@ graph TD
     Q["Your Question"] --> S["Supervisor"]
     S --> A1["Expert 1"]
     S --> A2["Expert 2"]
-    S --> A3["Adversarial 1<br/><i>must counter-propose</i>"]
-    S --> A4["Adversarial 2<br/><i>less context on purpose</i>"]
+    S --> A3["Challenger 1<br/><i>must counter-propose</i>"]
+    S --> A4["Challenger 2<br/><i>less context on purpose</i>"]
     S --> A5["Domain Outsider<br/><i>outside the box</i>"]
     A1 & A2 & A3 & A4 & A5 --> DB["Debate<br/><i>pairs argue disagreements</i>"]
     DB --> BI["Bias Detection<br/><i>anchoring, confirmation,<br/>survivorship, base-rate</i>"]
@@ -275,12 +299,12 @@ graph TD
     style V fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
-Parallel agents with **mandatory adversarial**. Critics must counter-propose, not just attack. Outsiders break groupthink by design. Every synthesis checked for 4 cognitive biases. Every claim classified as sourced or unsourced. The answer you get has been **stress-tested**, not just **reviewed**.
+Parallel agents with **mandatory challenger**. Critics must counter-propose, not just attack. Outsiders break groupthink by design. Every synthesis checked for 4 cognitive biases. Every claim classified as sourced or unsourced. The answer you get has been **stress-tested**, not just **reviewed**.
 
 | | Claude Subagents | Other Solutions | Quorum |
 |--|-----------------|-----------------|--------|
-| **Topology** | Parallel split-merge | Sequential single-agent reviews | Parallel debate + adversarial-driven convergence |
-| **Adversarial** | None | Cross-model second opinion, no structured attack | 2+ mandatory critics per panel, counter-proposals required |
+| **Topology** | Parallel split-merge | Sequential single-agent reviews | Parallel debate + challenge-driven convergence |
+| **Challenger** | None | Cross-model second opinion, no structured attack | 2+ mandatory critics per panel, counter-proposals required |
 | **Bias Detection** | None | None | 4 cognitive bias checks per synthesis |
 | **Evidence Scoring** | None | None | Every claim graded STRONG/MODERATE/WEAK/UNSOURCED |
 | **Convergence Math** | None | None | C = (A×0.6) + (D×0.4), scored per round |
@@ -304,7 +328,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 # Quick opinion — 5 agents, done in 2 minutes
 /quorum "Should we build this feature custom or buy a SaaS tool?"
 
-# Stress-test a decision — full adversarial-driven convergence
+# Stress-test a decision — full challenge-driven convergence
 /quorum "Should we build or buy our auth system?" --max
 
 # Settling an argument — auto-routes to dialectic
@@ -370,7 +394,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | Tier | Flag | Agents | What Happens |
 |------|------|--------|-------------|
 | Default | *(none)* | 5 | SME panel debates, supervisor synthesizes |
-| Max | `--max` | 7-15 (recommended, user can go higher) | Full adversarial-driven convergence with iterative rounds. Subsumes the old `--converse` flag. Teams/dialectic/hackathon auto-selected as needed |
+| Max | `--max` | 7-15 (recommended, user can go higher) | Full challenge-driven convergence with iterative rounds. Subsumes the old `--converse` flag. Teams/dialectic/hackathon auto-selected as needed |
 | Reviewers | `--reviewers` | 3-5 phases | Sequential review cascade, auto-decide mechanical findings, surface taste calls |
 | Custom | `--set N` | N | At 20+, swarm architecture auto-engages (same as `--swarm`) |
 
@@ -397,7 +421,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
 | Vague prompt (no scope, no constraints) | Vagueness gate (2-4 clarifying questions) | Auto-detected when 2+ vagueness signals present. No flag needed |
-| Any question at `--max` | Adversarial-driven convergence (iterative rounds) | `--max` always uses converse mode internally |
+| Any question at `--max` | Challenge-driven convergence (iterative rounds) | `--max` always uses converse mode internally |
 | Any question at `--set 20+` | Swarm (MECE taxonomy + environment) | Agent count >= 20 |
 | 3+ domains detected | Teams (internal deliberation, cross-challenge) | Supervisor detects domain count |
 | Forecasting question at `--set` | Prediction mode (sentiment + coalitions) | "Will X happen", "by 2028", future-tense patterns |
@@ -459,8 +483,8 @@ graph LR
     A["Your Question"] --> B["Supervisor<br/>picks 5 SMEs"]
     B --> C1["Agent 1<br/><i>independent</i>"]
     B --> C2["Agent 2<br/><i>independent</i>"]
-    B --> C3["Agent 3<br/><i>adversarial</i>"]
-    B --> C4["Agent 4<br/><i>adversarial</i>"]
+    B --> C3["Agent 3<br/><i>challenger</i>"]
+    B --> C4["Agent 4<br/><i>challenger</i>"]
     B --> C5["Agent 5<br/><i>independent</i>"]
     C1 & C2 & C3 & C4 & C5 --> D["Triage<br/>key disagreements"]
     D --> E["Cross-Review<br/>debate pairs argue"]
@@ -482,12 +506,12 @@ graph LR
     style H fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
-1. **Setup** — Supervisor analyzes your question, picks experts with diverse perspectives. Minimum 2 adversarial. Before spawning, the supervisor checks if the prompt is specific enough. If vague (no scope, no constraints), it asks 2-4 clarifying questions first
+1. **Setup** — Supervisor analyzes your question, picks experts with diverse perspectives. Minimum 2 challenger. Before spawning, the supervisor checks if the prompt is specific enough. If vague (no scope, no constraints), it asks 2-4 clarifying questions first
 2. **Independent work** — All agents work in parallel, no one sees anyone else's output
 3. **Triage** — Supervisor reads all reports, drops low-value agents, identifies key disagreements
 4. **Cross-review** — Selected agents debate each other directly. Devil's Advocate challenges the majority
 5. **Synthesis** — Supervisor authors the final report with editorial judgment
-6. **Validation** — Adversarial reviewer challenges the synthesis (web fact-check preferred; same-session agent review as fallback — see [Limitations](#honest-limitations))
+6. **Validation** — Challenge reviewer challenges the synthesis (web fact-check preferred; same-session agent review as fallback — see [Limitations](#honest-limitations))
 7. **Final report** — What survived, what's disputed, what to do next
 
 ### Max Mode (7-15 recommended, scalable, `--max`)
@@ -546,7 +570,7 @@ The full panel iterates across rounds until a solution survives sustained attack
 | **Synthesizer** | Reports what survived and what collapsed at checkpoints. |
 | **Judge** | Neutral arbiter. Computes convergence score. Ends when C >= 0.8 (max 6 rounds). |
 
-**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed. Must include what WOULD work. No free nihilism. The 40/60 adversarial-to-constructive ratio is calibrated: AI debate performance drops at 4+ adversarial agents from context overload (Liang et al. 2023), and authentic critics outperform assigned devil's advocates (Nemeth 2001).
+**Anti-duplication:** No repetition across rounds. "This won't work" is not allowed. Must include what WOULD work. No free nihilism. The 40/60 challenger-to-constructive ratio is calibrated: AI debate performance drops at 4+ Challengers from context overload (Liang et al. 2023), and authentic critics outperform assigned devil's advocates (Nemeth 2001).
 
 **Four outcomes:** CONVERGED (survived attack) / **VOTE** (near-consensus tiebreaker) / TENSION (irreducible tradeoff — user decides) / EXHAUSTED (diminishing returns).
 
@@ -579,7 +603,7 @@ graph LR
     A["'Build X' detected"] --> B["Decomposition<br/>Agent"]
     B --> C["PRD with TDD<br/><i>file paths, tasks,<br/>acceptance criteria</i>"]
     C --> D{"--max?"}
-    D -->|"Yes"| E["Adversarial<br/>Convergence"]
+    D -->|"Yes"| E["Challenger<br/>Convergence"]
     E --> F["Architect + Breaker<br/>+ TDD Enforcer<br/>+ Pragmatist + Judge"]
     F --> G{"C >= 0.8?"}
     G -->|"No"| E
@@ -606,7 +630,7 @@ graph LR
    - Bite-sized tasks (one action each, 2-5 minutes)
    - Each task: write failing test -> verify fail -> implement -> verify pass -> commit
    - Machine-verifiable acceptance criteria (not "works correctly" but "returns 200 with valid JWT containing user_id claim")
-3. **Adversarial-driven convergence** stress-tests the PRD (only with `--max`):
+3. **Challenge-driven convergence** stress-tests the PRD (only with `--max`):
    - Architect: "Are the boundaries right? Missing abstractions?"
    - Breaker: "Which acceptance criteria are ambiguous? Edge cases?"
    - TDD Enforcer: "Is every task actually testable? Assertions specific enough?"
@@ -626,7 +650,7 @@ Earlier versions shipped a shell script (the "Ralph loop") that called `claude -
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
 | PRD generation | 5 agents (lighter) | 7-15 agents (full decomposition) |
-| Stress-test | No adversarial review | Full convergence (5 personas, C >= 0.8) |
+| Stress-test | No challenge review | Full convergence (5 personas, C >= 0.8) |
 | Output quality | Good for small features | Production-grade for complex systems |
 
 No `--hackathon` flag exists. Same capability, zero cognitive load.
@@ -671,7 +695,7 @@ graph TD
 3. **Auto-resolution** — Mechanical findings are auto-resolved using decision principles (completeness, blast radius, pragmatic, DRY, explicit over clever, bias toward action)
 4. **Final Gate** — Only taste decisions surface for your approval. Cross-phase themes are highlighted
 
-| | Default (horizontal) | --max (adversarial) | --reviewers (vertical) |
+| | Default (horizontal) | --max (challenger) | --reviewers (vertical) |
 |--|---------------------|--------------------|-----------------------|
 | Topology | Flat panel | Iterative convergence | Sequential cascade |
 | Agent relationship | Peers debate | Attackers vs defenders | Each builds on previous |
@@ -753,7 +777,7 @@ The single best improvement: **always include `--artifact` pointing to your desi
 | Contradiction Check | Catches when agents disagree AND when they agree without evidence |
 | Hallucination Red Flags | Supervisor checklist for fabricated stats, fake citations, too-clean numbers |
 | **Research Drift Diff** | **Tracks claims ADDED between Phase 1→4. Unsourced expansions = DRIFT (flagged for user validation). Inverted findings = CRITICAL (blocks delivery). Diff shown in every verdict** |
-| Adversarial Validation | Reviewer challenges the synthesis (web search preferred, subagent with fresh context, or same-session agent review as fallback) |
+| Challenger Validation | Reviewer challenges the synthesis (web search preferred, subagent with fresh context, or same-session agent review as fallback) |
 | Transparent Output | Report shows what's verified, what's unresolved, what couldn't be checked + Drift Diff |
 | **Cross-Model Consistency** | _(`--diverse` only)_ Agreement across different model families is stronger evidence. Disagreement triggers `CROSS_MODEL_DIVERGENCE`. Claude-only claims flagged as potential training bias. External-only claims surfaced as blind spots |
 
@@ -781,7 +805,7 @@ When you give an AI a project profile and a classification gate, it starts only 
 2. **Classification gate scores the question, not the project.** A business question in a research repo gets business agents
 3. **Condition-based outsider injection.** High consensus with low challenge -> inject a lateral thinker
 4. **Exploratory queries invert the profile.** "What am I missing?" spawns from domains the profile doesn't list
-5. **Adversarial agents are immune to pruning.** Devil's Advocate and Provocateur can never be killed by efficiency rules
+5. **Challengers are immune to pruning.** Devil's Advocate and Provocateur can never be killed by efficiency rules
 6. **Inverted early termination.** When everyone agrees, scrutiny goes UP. Unanimous consensus is the highest-risk scenario
 
 ## The Science
@@ -792,9 +816,9 @@ That's the finding. Not an opinion. A measured result from 699 people solving br
 
 What did predict it: **equal conversational turn-taking.** Groups where everyone contributed roughly equally were measurably smarter than groups dominated by one person.
 
-That's why Quorum defaults to 5 agents with mandatory equal participation. Not because 5 is a round number. Because it's the research-backed ceiling where every agent can still contribute equally. At 7, conversational inequality becomes unavoidable (Dunbar's synchronous layer). 3-agent AI debate already outperforms single-agent output (Du et al. 2023). Adding a supervisor + adversarial agent to reach 5 optimizes the diversity-coherence tradeoff.
+That's why Quorum defaults to 5 agents with mandatory equal participation. Not because 5 is a round number. Because it's the research-backed ceiling where every agent can still contribute equally. At 7, conversational inequality becomes unavoidable (Dunbar's synchronous layer). 3-agent AI debate already outperforms single-agent output (Du et al. 2023). Adding a supervisor + Challenger to reach 5 optimizes the diversity-coherence tradeoff.
 
-**One dissenter cuts groupthink by 85%.** A single person who disagrees drops conformity from 32% to 5% (Asch 1951). That's why Quorum's adversarial minimum is 2, not 1.
+**One dissenter cuts groupthink by 85%.** A single person who disagrees drops conformity from 32% to 5% (Asch 1951). That's why Quorum's challenger minimum is 2, not 1.
 
 **One dissenter is dismissed as eccentric. Two establish a pattern.** A lone critic gets ignored. Two critics with the same position create a credible minority that the majority can't dismiss (Moscovici 1969). That's why 2 is the minimum, not the maximum.
 
@@ -824,17 +848,95 @@ Swarm reports add:
 - **Coalition Map** — Which territory groups aligned on which recommendations
 - **Sentiment Trajectory** — How the swarm's collective position evolved across rounds
 
-## API Keys and Secrets
+## Bring Your Own Models Securely
 
-**Never hardcode an API key.** Not in code, config, prompts, URLs, commits or command lines. Keep keys in a vault you own, such as your OS keychain, 1Password, HashiCorp Vault, a cloud secret manager or SOPS/age, and scope each key to the least it needs.
+**Never hardcode an API key.** Not in code, config, prompts, URLs, commits or command lines. Keep keys in a vault you own, such as your OS keychain, 1Password, HashiCorp Vault, a cloud secret manager or SOPS/age. Quorum holds a reference and resolves the key only when it needs it. It stores no key on disk.
 
-Quorum does not need your API keys. The Gemini and Codex CLIs use their own login. If a key lands anywhere it should not, treat it as exposed and rotate it. Deleting it is not enough.
+### Set up
+
+1. Install: `pip install .` from this repository.
+2. Create `~/.config/quorum/quorum.toml` from `docs/quorum.example.toml`.
+3. Add providers below and set `[panel] min_families` and `[limits]`.
+
+All providers, keys, evidence and prices live in that user-level file, and `quorum-run` requires it. A `quorum.toml` in a project is untrusted: it can only raise `[panel] min_families` or lower `[limits]`. This stops a cloned repo sending your data or keys to its own endpoint, or forging evidence.
+
+### Option A: your own open-source model (Ollama)
+
+Prompts stay on your machine, and loopback calls skip environment proxies. This is the most private option.
+
+```toml
+[providers.local]
+type = "ollama"
+model = "<your-ollama-model>"
+base_url = "http://localhost:11434"
+family = "meta"
+rank = 1
+```
+
+Set `family` to the developer that trained the model. Without it, the model can answer but does not count toward the diversity floor. Keep your model server bound to localhost unless you have secured it.
+
+### Option B: a hosted or self-hosted API (OpenAI-compatible)
+
+Fetch the key from your vault at call time:
+
+```toml
+[providers.byo]
+type = "openai_compatible"
+model = "<your-model>"
+base_url = "https://<your-endpoint>/v1"
+family = "other"
+api_key_cmd = ["security", "find-generic-password", "-s", "quorum/byo", "-w"]
+rank = 3
+```
+
+Allowed vault commands are `security`, `secret-tool`, `op`, `vault`, `sops`, `aws` and `gcloud`. You can use `api_key_env = "QUORUM_BYO_API_KEY"` instead if your vault injects environment variables.
+
+Remote endpoints must use HTTPS. Redirects are refused. Use a dedicated, least-privilege key with a spending limit where your provider offers one.
+
+### Optional integrations
+
+Every integration is optional. `/quorum` works without any of them. Add one when you want more model families on the panel. `quorum-run` needs at least two answering families by default, and at least one must be a model Quorum calls directly.
+
+| Integration | Connect it | Add to `~/.config/quorum/quorum.toml` |
+|---|---|---|
+| Gemini CLI | Run `gemini` and finish sign-in | `type = "gemini_cli"`, `model`, `command` as in `docs/quorum.example.toml` |
+| Codex CLI | Run `codex login` | `type = "codex_cli"`, `model`, `command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]` |
+| Ollama | Run `ollama serve`, then `ollama pull <model>` | Option A above |
+| Any OpenAI-compatible API | Store your key in your vault | Option B above |
+
+To use a local model for neutral summaries, add `[pm]` with `provider = "<provider name>"`. It never judges, and it does not take a panel seat.
+
+**Test status:** these integrations are covered by automated tests with simulated providers. Quorum has not yet verified a real answer through each one, so try a low-stakes question first. If a CLI is not logged in, the run reports that seat as failed.
+
+### Add routing evidence
+
+```toml
+[role_bars]
+code = 0.7
+
+[[evidence]]
+model_id = "<your-model>"
+role = "code"
+metric = "pass_rate"
+score = 0.8
+source = "https://<where-you-measured-it>"
+measured_on = "2026-10-01"
+is_verified = true
+```
+
+Roles are `intent`, `architecture`, `code`, `research`, `routing`, `judge` and `challenger`. Evidence older than 180 days counts as unproven.
+
+### Safety rules
+
+- If a key lands in a file, prompt or commit, treat it as exposed and rotate it. Deleting it is not enough.
+- Anything sent to a remote provider leaves your machine under that provider's terms. Use a local model for sensitive material.
+- Redaction is a backstop. It can miss encoded or split secrets, so keep secrets out of questions and artifacts.
 
 ## Honest Limitations
 
 Quorum is a reasoning quality tool, not a magic truth machine.
 
-1. **The validation gate is not truly independent.** Even mild social influence narrows group diversity (Lorenz et al. 2011). The adversarial reviewer uses a separate agent in the same Claude session. That's prompt-level independence, not structural independence. Web search fact-checking provides genuinely independent evidence. Agent review provides useful but limited adversarial pressure. Neither substitutes for human review.
+1. **The validation gate is not truly independent.** Even mild social influence narrows group diversity (Lorenz et al. 2011). The challenge reviewer uses a separate agent in the same Claude session. That's prompt-level independence, not structural independence. Web search fact-checking provides genuinely independent evidence. Agent review provides useful but limited challenger pressure. Neither substitutes for human review.
 
 2. **The environment server is simulated.** Swarm mode's Environment Server and Pattern Detection are prompt-orchestrated, not a persistent runtime service. The quality of pattern detection depends on summarization quality, not a dedicated algorithm. True O(patterns) scaling is a design goal, not a current guarantee.
 
@@ -852,7 +954,7 @@ Every transformer output is a probability sample, not a fact lookup (Vaswani et 
 
 Biological brains do the same thing. They reconstruct memories from statistical patterns rather than retrieving stored records (Bartlett 1932, Schacter 1999, Loftus & Palmer 1974). McCulloch & Pitts (1943) modeled artificial neural networks on exactly this mechanism. Both systems fill gaps with plausible guesses. The difference is that we built the LLM, so we can study the mechanism.
 
-Quorum's 5-layer validation pipeline, adversarial agents, and evidence audits reduce hallucination. They make it *visible*. They do not eliminate it. Every Quorum report is a starting point for human judgment, not a replacement for it.
+Quorum's 5-layer validation pipeline, Challengers, and evidence audits reduce hallucination. They make it *visible*. They do not eliminate it. Every Quorum report is a starting point for human judgment, not a replacement for it.
 
 **[Full scientific explanation with citations ->](docs/SAFETY.md#0-on-hallucination-why-no-llm-is-hallucination-proof)**
 
@@ -860,7 +962,7 @@ Quorum's 5-layer validation pipeline, adversarial agents, and evidence audits re
 <summary><strong>Version History</strong></summary>
 
 ### v7.3.0 — Design Audit (2026-03-29)
-Terminology revert ("dissent" → "adversarial"). Adversarial Attack Model (5 named agents: Minimalist, Exploiter, Statistician, Retrieval Hacker, Skeptic). Convergence formula simplified to 2-term. Calibration penalties (hedging, overconfidence). Evidence scoring upgraded to continuous with source deduplication. Codex CLI vagueness gate. First Python module (`src/quorum_scorer.py` + 40 tests). Operational definitions for claim matching, defense success, agreement growth.
+Terminology revert ("dissent" → "challenger"). Scoring Stress-Test Model (5 named agents: Minimalist, Exploiter, Statistician, Retrieval Hacker, Skeptic). Convergence formula simplified to 2-term. Calibration penalties (hedging, overconfidence). Evidence scoring upgraded to continuous with source deduplication. Codex CLI vagueness gate. First Python module (`src/quorum_scorer.py` + 40 tests). Operational definitions for claim matching, defense success, agreement growth.
 
 ### v7.2.0 — Multi-Model Diversity (2026-03-28)
 `--diverse` flag: replace 2 agent slots with Gemini and Codex for genuine prior diversity. Phase 1 multi-model agents, Phase 5 cross-model cold-review, Cross-Model Divergence flag, Model Diversity Report. D_m term added to convergence formula. Validation layers 6 → 7. Auto-enabled with `--max` when CLIs detected.

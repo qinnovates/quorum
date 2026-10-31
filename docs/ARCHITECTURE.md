@@ -53,7 +53,7 @@
   - [Layer 4: Independent Validation](#layer-4-independent-validation-phase-5)
   - [Layer 5: Transparency in Output](#layer-5-transparency-in-output)
 - [Operational Definitions (v7.3.0)](#operational-definitions-v730)
-- [Adversarial Attack Model (v7.3.0)](#adversarial-attack-model-v730)
+- [Scoring Stress-Test Model (v7.3.0)](#scoring-stress-test-model-v730)
 - [Prompt Templates](#prompt-templates)
   - [Research Agent Template](#research-agent-template)
   - [Analysis Agent Template](#analysis-agent-template)
@@ -236,7 +236,7 @@ Using the mode + domain classification:
 - Each gets a unique persona, stance directive, and seed questions
 - Follow standard composition rules (see [Composition Rules](#composition-rules))
 
-**Adversarial Agents** (all modes):
+**Challenger Agents** (all modes):
 - Devil's Advocate, Naive User, Domain Outsider (mandatory)
 - Additional challenge agents based on `--rigor` level
 
@@ -245,7 +245,7 @@ Using the mode + domain classification:
 - Not all agents see the same material
 - Research agents see only the query + their search partition assignment
 - Analysis agents see the query + any provided artifact
-- Adversarial agents see less context initially (reduces anchoring bias)
+- Challengers see less context initially (reduces anchoring bias)
 
 ---
 
@@ -289,7 +289,7 @@ The supervisor reads every report and makes editorial decisions. This is not mec
 - **Supervisor note:** Write a brief (2-3 sentence) "state of the debate" summary that frames what's settled, what's contested, and what's missing. This goes to all Phase 3 agents as orientation.
 
 **Research Pool Distribution:**
-- Send the deduplicated Research Pool + supervisor's gap assessment to all analysis + adversarial agents before Phase 3
+- Send the deduplicated Research Pool + supervisor's gap assessment to all analysis + Challengers before Phase 3
 - This ensures debate is grounded in evidence, not speculation
 
 ---
@@ -396,7 +396,7 @@ Drift summary: 4 findings, 3 auto-corrected, 1 requires validation
 
 The synthesis gets challenged by a reviewer who was not involved in producing it.
 
-**Structural limitation (honest disclosure):** Method 2 (agent review) uses a separate agent within the same Claude session and model. This is prompt-level independence, not structural independence. Lorenz et al. (2011) showed that even mild social influence narrows diversity without improving accuracy. Nemeth (2001) showed that role-played dissent is less effective than authentic dissent. The same principle applies here: a reviewer in the same session has implicit context that a truly independent reviewer would not. Method 1 (web search) provides genuinely independent evidence; Method 2 provides useful-but-limited adversarial review. Both are valuable. Neither is a substitute for human review.
+**Structural limitation (honest disclosure):** Method 2 (agent review) uses a separate agent within the same Claude session and model. This is prompt-level independence, not structural independence. Lorenz et al. (2011) showed that even mild social influence narrows diversity without improving accuracy. Nemeth (2001) showed that role-played dissent is less effective than authentic dissent. The same principle applies here: a reviewer in the same session has implicit context that a truly independent reviewer would not. Method 1 (web search) provides genuinely independent evidence; Method 2 provides useful-but-limited challenge review. Both are valuable. Neither is a substitute for human review.
 
 **Method 1: Web Search Fact-Check (stronger independence)**
 Use WebSearch to:
@@ -410,7 +410,7 @@ Spawn a subagent with a self-contained validation prompt. The subagent runs in f
 See [Subagent Execution Model](#subagent-execution-model) for the full pattern, prompt requirements, and phase integration.
 
 **Method 3: Same-Session Agent Review (prompt-level independence — weakest)**
-Spawn a separate Agent with adversarial framing:
+Spawn a separate Agent with challenger framing:
 ```
 You are a reviewer who was NOT part of the swarm that produced this synthesis.
 You have no loyalty to these conclusions. Review with fresh eyes.
@@ -564,7 +564,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 
 ### Mandatory Agents (scaled to swarm size)
 
-| Swarm Size | Required Adversarial Agents |
+| Swarm Size | Required Challenger Agents |
 |---|---|
 | 3 (`--lite --size 3`) | Devil's Advocate only (1 agent) — below Moscovici threshold, use only for quick takes |
 | 5-8 | Devil's Advocate + Naive User (2 agents) — meets Moscovici (1969) credible minority threshold |
@@ -574,7 +574,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 - **Naive User** -- asks basic questions, tests assumptions (5+ agents)
 - **Domain Outsider** -- expert from an unrelated field, forces lateral thinking (9+ agents)
 
-**Research basis for the floor of 2:** Asch (1951) showed a single dissenter reduces conformity from 32% to 5%. Moscovici, Lage & Naffrechoux (1969) showed a minority of 2 in a group of 6 shifts the majority when behaviorally consistent — one dissenter is dismissed as eccentric, two establish a credible pattern. The previous floor of 1 adversarial agent at 5-agent swarms was below this threshold. Updated in v5.2.0.
+**Research basis for the floor of 2:** Asch (1951) showed a single dissenter reduces conformity from 32% to 5%. Moscovici, Lage & Naffrechoux (1969) showed a minority of 2 in a group of 6 shifts the majority when behaviorally consistent — one dissenter is dismissed as eccentric, two establish a credible pattern. The previous floor of 1 Challenger at 5-agent swarms was below this threshold. Updated in v5.2.0.
 
 ### Diversity Requirements
 
@@ -588,7 +588,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 | Category | Role | Examples |
 |----------|------|---------|
 | Technical | Deep domain expertise | Engineer, architect, researcher |
-| Adversarial | Break things | Red teamer, competitor, skeptic |
+| Challenger | Break things | Red teamer, competitor, skeptic |
 | Domain | Subject-matter authority | Clinician, scientist, analyst |
 | Creative | Lateral thinking | Designer, futurist, artist |
 | Regulatory | Compliance & governance | Lawyer, auditor, policy reviewer |
@@ -598,7 +598,7 @@ The `--ratify` overhead comes primarily from the auditor invocation (~15K) and t
 ### How Quorum Prevents Groupthink
 
 - **Assigned positions**: Each agent argues from a specific stance, not just "give your opinion"
-- **Controlled information**: Not all agents see the same context -- adversarial agents see less, which prevents anchoring
+- **Controlled information**: Not all agents see the same context -- Challengers see less, which prevents anchoring
 - **Different focus areas**: No two agents answer the same question -- the supervisor assigns unique seed questions
 - **Minority protection**: If one agent disagrees with everyone but has strong evidence, their position is preserved in the final report -- not buried
 - **External challenge**: The cross-AI gate sends your swarm's conclusions to a different AI system that has no loyalty to the answer
@@ -633,7 +633,7 @@ The supervisor does NOT pick CDP profiles that "match" the persona. A conservati
 | Archetype | Tension Axis | Tension Value | Domain-Contextualized Instruction |
 |-----------|-------------|---------------|----------------------------------|
 | Technical | Risk Tolerance | HIGH | "Identify technical bets that create asymmetric upside. Where does the risky approach yield 10x return?" |
-| Adversarial | Risk Tolerance | LOW | "Find what is worth preserving in the proposal. What survives your attack, and why does it survive?" |
+| Challenger | Risk Tolerance | LOW | "Find what is worth preserving in the proposal. What survives your attack, and why does it survive?" |
 | Domain Expert | Abstraction | HIGH | "Step above your domain. What structural forces shape this problem beyond the technical specifics?" |
 | Creative | Skepticism | HIGH | "Pressure-test every creative suggestion. Which ideas survive contact with implementation reality?" |
 | Regulatory | Abstraction | LOW | "Translate every principle into a concrete implementation checklist. No regulation without a test." |
@@ -793,7 +793,7 @@ Socrates never told anyone the answer. He asked questions until the other person
 
 ## Converse Mode (`--converse`)
 
-When `--converse` is set, the swarm becomes an **iterative adversarial-driven convergence engine** — the full panel stays in the room across multiple rounds, critiquing each other's proposals, building counter-proposals, and converging on solutions that survive sustained attack.
+When `--converse` is set, the swarm becomes an **iterative challenge-driven convergence engine** — the full panel stays in the room across multiple rounds, critiquing each other's proposals, building counter-proposals, and converging on solutions that survive sustained attack.
 
 Unlike dialectic mode (2 agents, philosophical depth) or standard mode (parallel analysis, single cross-review), converse mode is **multi-agent iterative problem-solving** — the quorum converses back and forth to identify problems, propose solutions, attack those solutions, and converge on what survives.
 
@@ -808,7 +808,7 @@ The agent composition and ratio in converse mode are derived from peer-reviewed 
 | Collective Error = Avg Individual Error − Prediction Diversity | Page (2007), *The Difference*, Princeton | Adding a dissenting member improves output even if individually less accurate, as long as errors are uncorrelated |
 | Role-played devil's advocacy causes cognitive bolstering — people become MORE entrenched | Nemeth, Brown & Rogers (2001), *EJSP* 31(6), DOI: 10.1002/ejsp.58 | Critics must hold authentic positions with counter-proposals, not assigned contrarianism |
 | Dialectical Inquiry (counter-plan) produces 34% higher quality than consensus | Schweiger, Sandberg & Ragan (1986), *AMJ* 29(1), DOI: 10.5465/255859 | Critics must propose alternatives, not just attack |
-| AI debate: 2 debaters optimal; COMET drops from 84.4→83.1→82.9 at 3-4 agents | Liang et al. (2023), arXiv:2305.19118, EMNLP 2024 | Performance degrades with too many adversarial agents — context overload |
+| AI debate: 2 debaters optimal; COMET drops from 84.4→83.1→82.9 at 3-4 agents | Liang et al. (2023), arXiv:2305.19118, EMNLP 2024 | Performance degrades with too many Challengers — context overload |
 | 3 agents, 2 rounds is practical optimum for multi-agent AI debate | Du et al. (2023), arXiv:2305.14325, ICML 2024 | Diminishing returns beyond 3 agents and 2 rounds |
 | Group intelligence correlates with equal conversational turns, not member IQ | Woolley et al. (2010), *Science* 330(6004), DOI: 10.1126/science.1193147 | Structural equality of voice matters more than adding agents |
 | Social influence narrows diversity without improving accuracy | Lorenz et al. (2011), *PNAS* 108(22), DOI: 10.1073/pnas.1008636108 | Independence must be protected by design in early rounds |
@@ -839,7 +839,7 @@ Historian  = 1 if N ≥ 7                 # Pattern-matches to prior failures (o
 | `--converse --full` | 7 | 3 (Realist + Breaker + Historian) | 4 (Proposer + Synthesizer + Judge + Survivor) | 43/57 | Judge decides (max 6) |
 
 **Why this ratio, not 80/20 or higher:**
-- Liang et al. (2023) show COMET scores DROP at 3+ adversarial agents (context overload)
+- Liang et al. (2023) show COMET scores DROP at 3+ Challengers (context overload)
 - Nemeth (2001) shows the mechanism isn't quantity of criticism — it's **quality** and **authenticity**
 - Schweiger (1986) shows critics who must build counter-plans (DI) outperform critics who only attack (DA) by 34%
 - The builders are fixed at minimum because you need enough constructive force to prevent nihilistic loops (the "pessimist's spiral" problem)
@@ -850,7 +850,7 @@ Historian  = 1 if N ≥ 7                 # Pattern-matches to prior failures (o
 |------|--------|-------------|-----------------|
 | **Proposer** | Pragmatic | Puts first solution on the table. After Round 1, defends and adapts based on criticism. Not optimistic — just goes first. | Every round |
 | **Realist** | Constructive pessimist | "Here's why this fails in the real world, AND here's what would survive that failure." Must point at what survives, not just what breaks. | Every round |
-| **Breaker** | Adversarial | "Here's how I'd deliberately break this solution." Attacks the proposal from the most damaging angle. Must propose the attack vector, not just state pessimism. | Every round |
+| **Breaker** | Challenger | "Here's how I'd deliberately break this solution." Attacks the proposal from the most damaging angle. Must propose the attack vector, not just state pessimism. | Every round |
 | **Synthesizer** | Neutral constructive | "Given everything that's been said, here's what's still standing." Speaks at convergence checkpoints. Identifies what survived criticism and what collapsed. | Rounds 2, 4, final |
 | **Judge** | Neutral arbiter | Tracks convergence across rounds. Declares when the group has converged, identified irreducible tension, or hit diminishing returns. Calls endpoint. Cannot take a position. | End of each round (meta-commentary only) |
 | **Historian** | Pattern-matcher (--full only) | "This was tried before. Here's what happened." Brings historical precedent, analogous failures, and prior art. | Rounds 1-2 |
@@ -1082,7 +1082,7 @@ Supervisor decision: Position A, informed by weighted vote + reasoning quality
 
 - Research agents get full web search access but limited analysis expectations
 - Analysis agents get full reasoning depth but no web search (they work from the Research Pool)
-- Adversarial agents get minimal initial context (reduces anchoring, saves tokens)
+- Challengers get minimal initial context (reduces anchoring, saves tokens)
 
 ---
 
@@ -1228,7 +1228,7 @@ Where entailment_score uses NLI classification: does the source entail, contradi
 
 ---
 
-## Adversarial Attack Model (v7.3.0)
+## Scoring Stress-Test Model (v7.3.0)
 
 Five named attack agents stress-test Quorum's scoring system. Each targets a specific equation or mechanism and provides a concrete falsification. These attacks informed the v7.3.0 scoring revisions.
 
@@ -1444,7 +1444,7 @@ Flag:
 4. Recommendations you disagree with and why
 5. One thing you'd add that no agent mentioned
 
-Be adversarial. The swarm will respond to your critique, so make it count.
+Challenge it directly. The swarm will respond to your critique, so make it count.
 ```
 
 ---
@@ -1531,7 +1531,7 @@ Not all agents need all tools. The supervisor gates tool access by role:
 | Supervisor | All | Orchestration requires full access |
 | Research Agent | Agent, WebSearch, WebFetch, Read, Glob, Grep | Needs web access, no file mutation |
 | Analysis Agent | Agent, Read, Glob, Grep | Works from Research Pool, no web or file writes |
-| Adversarial Agent | Agent, Read | Minimal context reduces anchoring |
+| Challenger Agent | Agent, Read | Minimal context reduces anchoring |
 
 Agents should never be spawned with `Bash`, `Write`, or `Edit` permissions. Only the supervisor uses those tools for output generation and session persistence.
 
@@ -1792,7 +1792,7 @@ Agent A-{{ID}}:
   Activation: {{SCHEDULE — round-robin / reactive / probabilistic}}
 ```
 
-Adversarial agents are injected at the branch level, not the leaf level:
+Challengers are injected at the branch level, not the leaf level:
 - 1 Devil's Advocate per top-level branch (argues against the branch's emerging consensus)
 - 1 Domain Outsider per 3 branches (expert from a domain not in the taxonomy at all)
 - Socrates and Plato operate at the cluster level in Phase S5
@@ -1987,7 +1987,7 @@ Socrates' questions and cluster responses. Plato's evidence audit.
 | **Agent interaction** | Free-form (social media simulation) | Structured (POST/REACT/HANDOFF/SHIFT within territory rules) |
 | **Aggregation** | Qualitative synthesis of interaction logs | Pattern extraction + editorial judgment + evidence audit |
 | **Validation** | None | 5-layer pipeline + independent cross-AI gate |
-| **Anti-groupthink** | None (emergence can amplify bias) | Anti-boxing rules + inverted early termination + adversarial immunity |
+| **Anti-groupthink** | None (emergence can amplify bias) | Anti-boxing rules + inverted early termination + challenger immunity |
 
 Quorum Swarm Mode takes MiroFish's scaling mechanism (environment-based coordination, probabilistic activation, emergent pattern detection) and wraps it in Quorum's epistemic guarantees (MECE territories, evidence tiers, structural challenge, independent validation). The result is collective intelligence at scale with built-in bullshit detection.
 
@@ -2294,7 +2294,7 @@ The viewer uses a **pre-built template** stored at `_swarm/viz/viewer-template.h
 │    challenge=red, support=green,  │                      │
 │    handoff=blue)                  │    Legend:            │
 │                                  │    🔵 Technical       │
-│                                  │    🔴 Adversarial │
+│                                  │    🔴 Challenger │
 │                                  │    🟢 Domain          │
 │                                  │    🟣 Creative        │
 │                                  │    🟠 Regulatory      │
@@ -2312,7 +2312,7 @@ The viewer uses a **pre-built template** stored at `_swarm/viz/viewer-template.h
 ```
 
 **Viewer features:**
-1. **Force-directed agent graph** — D3 force simulation. Nodes = agents (colored by archetype: Technical=blue, Adversarial=red, Domain=green, Creative=purple, Regulatory=orange, User=teal, Business=gold). Node size = interaction count. Edges colored by type. Click node → info panel shows agent details.
+1. **Force-directed agent graph** — D3 force simulation. Nodes = agents (colored by archetype: Technical=blue, Challenger=red, Domain=green, Creative=purple, Regulatory=orange, User=teal, Business=gold). Node size = interaction count. Edges colored by type. Click node → info panel shows agent details.
 2. **Timeline scrubber** — Range slider (round 0 to N). Filters graph and drift chart to show state at that round. Play button auto-advances. **Speed controls: 1x (1 second per round), 2x, 4x.** Pause to inspect any round.
 3. **Opinion drift chart** — SVG line chart. Each agent = one line. Y-axis = confidence (0-10). X-axis = rounds. Agents whose confidence changed most are drawn with thicker strokes.
 4. **Cluster/coalition highlights** — When a cluster or coalition exists at the current round, its member nodes get a convex hull overlay on the graph. Hull color matches cluster ID.
@@ -2488,7 +2488,7 @@ Quorum can execute work either **inline** (within the current conversation conte
 |-----------|------------------------|
 | **Validation/testing that needs unbiased fresh context** | The subagent has no knowledge of expected outcomes, eliminating confirmation bias. It cannot anchor on prior discussion. |
 | **Research that could pollute main context** | Large search results, API responses, and evidence dumps stay isolated. The main session receives only the structured findings. |
-| **Adversarial testing where the tester should not know the expected answer** | A subagent running a test protocol cannot unconsciously steer results toward what the main session "wants" to find. |
+| **Challenger testing where the tester should not know the expected answer** | A subagent running a test protocol cannot unconsciously steer results toward what the main session "wants" to find. |
 | **Parallel independent work** | Subagents can run in background (`run_in_background: true`) while the main session continues other work. |
 | **Code execution that could modify state** | Isolating state-changing operations in a subagent (or worktree) prevents accidental side effects in the main session. |
 
