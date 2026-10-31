@@ -893,6 +893,21 @@ Allowed vault commands are `security`, `secret-tool`, `op`, `vault`, `sops`, `aw
 
 Remote endpoints must use HTTPS. Redirects are refused. Use a dedicated, least-privilege key with a spending limit where your provider offers one.
 
+### Optional integrations
+
+Every integration is optional. `/quorum` works without any of them. Add one when you want more model families on the panel. `quorum-run` needs at least two answering families by default, and at least one must be a model Quorum calls directly.
+
+| Integration | Connect it | Add to `~/.config/quorum/quorum.toml` |
+|---|---|---|
+| Gemini CLI | Run `gemini` and finish sign-in | `type = "gemini_cli"`, `model`, `command` as in `docs/quorum.example.toml` |
+| Codex CLI | Run `codex login` | `type = "codex_cli"`, `model`, `command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]` |
+| Ollama | Run `ollama serve`, then `ollama pull <model>` | Option A above |
+| Any OpenAI-compatible API | Store your key in your vault | Option B above |
+
+To use a local model for neutral summaries, add `[pm]` with `provider = "<provider name>"`. It never judges, and it does not take a panel seat.
+
+**Test status:** these integrations are covered by automated tests with simulated providers. Quorum has not yet verified a real answer through each one, so try a low-stakes question first. If a CLI is not logged in, the run reports that seat as failed.
+
 ### Add routing evidence
 
 ```toml

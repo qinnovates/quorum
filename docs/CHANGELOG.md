@@ -20,6 +20,7 @@ All notable changes to Quorum are documented here.
 ### Known limits
 - Host subagents are reported to Quorum, not observed by it, and their usage is estimated.
 - Quality and token savings are not yet measured against a single strong model.
+- Gemini, Codex, Ollama and OpenAI-compatible providers are optional and tested with simulated providers. Live answers are not yet verified. See "Optional integrations" in the README.
 - Weights, budget shares and thresholds are unvalidated starting settings.
 
 ## v7.3.1 — Safety corrections
