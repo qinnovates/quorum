@@ -28,6 +28,19 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
+## What's New in 7.3.1: Safety Corrections
+
+| Change | Why |
+|---|---|
+| Gemini and Codex prompts go over stdin, not the command line | Command-line arguments are visible in process lists, logs and session transcripts |
+| Quorum asks before sending anything to a third party, with a separate yes for artifacts | Your data should not leave your machine because of a flag. `--max` no longer implies consent |
+| If no external model answers, the run stops with `FAILED_DIVERSITY` | A panel that silently becomes one model looks like a multi-model verdict but is not one |
+| The Ralph loop is removed | A script should not make the consent decision for you. Run PRDs in a Claude Code permission mode you choose |
+| `SAFETY.md` now separates instructions from enforced protections | Earlier wording described protections as if code enforced them. In 7.3.x, most are instructions to the model |
+| New guidance: never hardcode API keys; keep them in a vault you own | A key in a file, prompt or commit should be treated as exposed |
+
+**If you used earlier versions:** `--diverse` and `--max` could put your question and artifact text on the command line and send them to Google and OpenAI without asking. If a credential may have been in that content, rotate it. See the [changelog](docs/CHANGELOG.md).
+
 ## NEW: Hackathon Mode
 
 Say "build" and Quorum becomes a hackathon team. No flags, no config — just describe what you want built.
