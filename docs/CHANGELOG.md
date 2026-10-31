@@ -23,6 +23,7 @@ All notable changes to Quorum are documented here.
 - **README roadmap added**, including verifiable KV-cache handoffs as a research idea.
 - **Behaviour change:** with `fetch_sources` on, a listed verified source earns nothing until its quote is located, so a run whose only sources are outside `allowed_hosts` ends `UNRESOLVED`.
 - **Known limits:** the support checks are heuristics, lineage does not show truth, and entailment has not been run with a live model.
+- **Known issues from the first live run** (one question, a local Ollama model plus a Claude host seat): all 5 located quotes failed a support check with no real mismatch found, so nothing reached `STRONG`. A quote can be missed where an inline HTML tag touches the next character. "Strongest case against" can list claims favouring the winner. A structured `would_change` prints as raw data. Gemini, Codex and hosted APIs have not yet been run live.
 
 ## v7.7.0 — Smaller handoffs and run record
 

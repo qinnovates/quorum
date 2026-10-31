@@ -54,6 +54,14 @@ Earlier handoffs could change what a claim meant, and a verdict could look bette
 - Lineage shows where a claim came from, not that it is true. A reachable source can still be wrong.
 - Entailment has not been run with a live model. Its token cost and catch rate are unmeasured. A hostile checker can force `UNRESOLVED`, but it cannot create or flip a verdict.
 
+**Known issues from the first live run** (one question, a local Ollama model plus a Claude host seat, source checking on):
+- All 5 quotes found on their pages failed a support check, and a read-through found no real mismatch, so no claim reached `STRONG`. A negation anywhere in a claim, or honest paraphrase, can trip the checks. This lowers trust and cannot create a verdict.
+- A quote can be missed where an inline HTML tag touches the next character, as in `<em>vacuuming</em>.`, because the tag becomes a space.
+- "Strongest case against" can list disputed claims that favour the winning option, and it shows the claim instead of the objection.
+- A structured `would_change` answer prints as raw data.
+
+Gemini, Codex and hosted APIs have not yet been run live.
+
 ## What's New in 7.7.0: Smaller Handoffs and a Checkable Run Record
 
 | Feature | What it does | Why |
@@ -549,7 +557,7 @@ Parallel agents with **mandatory challenger**. Critics must counter-propose, not
 | **Challenger** | None | Cross-model second opinion, no structured attack | 2+ mandatory critics per panel, counter-proposals required |
 | **Bias Detection** | None | None | 4 cognitive bias checks per synthesis |
 | **Evidence Scoring** | None | None | Every claim graded STRONG/MODERATE/WEAK/UNSOURCED |
-| **Convergence Math** | None | None | C = (A×0.6) + (D×0.4), scored per round |
+| **Convergence Math** | None | None | C* (CDI-adjusted convergence), scored per round |
 | **Anti-groupthink** | None | Different model | 6 structural anti-boxing rules, domain outsider injection |
 | **Multi-model diversity** | None | Some use different model for review | `--diverse`: Gemini + Codex agents in panel, cross-model divergence detection |
 
