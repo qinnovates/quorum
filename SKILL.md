@@ -73,7 +73,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 | What You Say | What Fires | How It's Detected |
 |-------------|-----------|-------------------|
 | "Should we use X or Y?" | Dialectic (2 agents, Socratic rounds) | Binary question pattern |
-| "Build a REST API for..." | Hackathon (PRD + TDD + Ralph loop) | Implementation intent: "build", "implement", "create", "add feature" |
+| "Build a REST API for..." | Hackathon (PRD + TDD, you choose how it runs) | Implementation intent: "build", "implement", "create", "add feature" |
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
@@ -140,15 +140,14 @@ When you say "build", "implement", "create", "scaffold", "write a", "set up", or
    - Judge: Computes convergence score. Declares READY or sends back for revision.
 4. **Output:** `_swarm/prd-{name}.md` — battle-tested PRD ready for implementation
 
-**The Ralph loop** executes each PRD task with fresh context:
-- Reads PRD + progress.md + AGENTS.md
-- Picks highest-priority incomplete task
-- TDD: test → fail → implement → pass → commit
-- Updates progress.md with learnings
-- Every 3 tasks: Quorum review catches regressions, skipped tests, architecture drift
-- Repeats until all tasks checked off
+**Executing the PRD.** Quorum stops at the PRD. It does not run an autonomous build loop of its own. To execute the tasks, open the PRD in Claude Code and choose a permission mode yourself:
 
-**Note:** Ralph loop is local-only. Not included in the published marketplace version.
+- **Default mode:** Claude proposes each edit and command and waits for your approval. Safest; slowest.
+- **Auto mode:** Claude works through the PRD's tasks (test → fail → implement → pass → commit) without asking before each action. Switch with Shift+Tab, or start with `claude --permission-mode auto`.
+
+> **Consent warning.** Auto mode means you are approving every edit and command in advance, not one at a time. Before you turn it on: read the PRD (`--ratify` exists for exactly this); work on a fresh branch or worktree with nothing uncommitted that you care about; keep the task list scoped to what you reviewed; and stay close enough to stop it (Esc). Quorum will never switch modes for you. The choice to run unattended is yours to make, every time.
+
+Earlier versions shipped a shell script (the "Ralph loop") that called `claude --print` in a loop with no approval step. It was removed in v7.4.0: Claude Code's permission modes do the same job, with the consent decision made explicitly by the user instead of by a script.
 
 **With vs without `--max`:**
 
@@ -339,7 +338,7 @@ Human-in-the-loop approval gate. After the panel deliberates and produces a verd
 # Review before acting on a high-stakes decision
 /quorum "Should we open-source ClawFish's core engine?" --max --ratify
 
-# Approve a PRD before feeding it to Ralph loop
+# Approve a PRD before executing it in Auto mode
 /quorum "Build the obstacle detection pipeline for Spot" --max --ratify
 ```
 
@@ -593,7 +592,7 @@ When C* is in the close-call zone [0.65, 0.8) — positions are similar but not 
 **Auto-selected structures (supervisor decides which to layer on):**
 - **Teams** — if 3+ domains with different incentives. Teams deliberate internally, leads cross-challenge. Socrates questions weakest points, Plato audits evidence.
 - **Dialectic** — if the question is binary or philosophical. 2 agents drill through contradiction across rounds.
-- **Hackathon** — if the query is "build X" / "implement Y". Generates PRD with TDD + acceptance criteria, converse-stress-tests it, outputs Ralph loop command.
+- **Hackathon** — if the query is "build X" / "implement Y". Generates PRD with TDD + acceptance criteria, converse-stress-tests it, outputs the PRD for you to execute in the permission mode you choose.
 
 ### Set N (user-defined scale)
 

@@ -2,6 +2,14 @@
 
 All notable changes to Quorum are documented here.
 
+## Unreleased — v7.4.0
+
+### Removed — Ralph loop
+- **`scripts/ralph.sh` deleted.** It ran `claude --print` in a shell loop to execute PRD tasks with no approval step between actions.
+- **Why:** Claude Code now has permission modes the user picks deliberately, including Auto mode for unattended runs. A script that removes the approval step on the user's behalf makes the consent decision for them. The decision belongs to the user, every time.
+- **Replacement:** Hackathon mode still produces the battle-tested PRD. SKILL.md and README.md now tell the user how to execute it in Claude Code, with a consent warning before Auto mode: read the PRD (`--ratify`), use a fresh branch or worktree, keep the task list scoped, stay able to stop it.
+- Docs updated: SKILL.md, README.md, GUIDE.md, PROMPTS.md (PRD header note), BYOAI-ORCHESTRATION.md, BYOAI-REVIEW-PROMPT.md.
+
 ## [v7.3.0](https://github.com/qinnovates/quorum/releases/tag/v7.3.0) — 2026-03-29
 
 ### Changed — Terminology Revert: "dissent" → "adversarial"

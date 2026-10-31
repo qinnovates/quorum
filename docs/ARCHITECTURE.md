@@ -842,7 +842,7 @@ Historian  = 1 if N ≥ 7                 # Pattern-matches to prior failures (o
 - Liang et al. (2023) show COMET scores DROP at 3+ adversarial agents (context overload)
 - Nemeth (2001) shows the mechanism isn't quantity of criticism — it's **quality** and **authenticity**
 - Schweiger (1986) shows critics who must build counter-plans (DI) outperform critics who only attack (DA) by 34%
-- The builders are fixed at minimum because you need enough constructive force to prevent nihilistic loops (the "Pessimistic Ralph" problem)
+- The builders are fixed at minimum because you need enough constructive force to prevent nihilistic loops (the "pessimist's spiral" problem)
 
 ### Converse Mode Personas
 

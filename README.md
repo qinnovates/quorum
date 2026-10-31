@@ -41,9 +41,9 @@ Quorum auto-detects implementation intent and runs the hackathon pipeline:
 1. **Decomposition agent** breaks your idea into a PRD with TDD enforcement — exact file paths, bite-sized tasks, machine-verifiable acceptance criteria
 2. **Adversarial stress-test** (`--max`) — Architect, Breaker, TDD Enforcer, Pragmatist, and Judge attack the PRD until it survives or gets rewritten
 3. **Output** — a battle-tested `_swarm/prd-*.md` ready for implementation
-4. **Ralph loop** executes each task autonomously: test → fail → implement → pass → commit → repeat
+4. **You execute it** in Claude Code, in the permission mode you choose. Auto mode runs the tasks unattended; read the consent warning first.
 
-From "Build X" to shipping code. One command.
+From "Build X" to a battle-tested PRD. One command. The decision to run it unattended stays with you.
 
 [Full hackathon docs →](#hackathon-mode-auto-detected)
 
@@ -379,7 +379,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | What You Say | What Fires | How It's Detected |
 |-------------|-----------|-------------------|
 | "Should we use X or Y?" | Dialectic (2 agents, Socratic rounds) | Binary question pattern |
-| "Build a REST API for..." | Hackathon (PRD + TDD + Ralph loop) | Implementation intent: "build", "implement", "create", "add feature" |
+| "Build a REST API for..." | Hackathon (PRD + TDD, you choose how it runs) | Implementation intent: "build", "implement", "create", "add feature" |
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
@@ -408,7 +408,7 @@ Human-in-the-loop approval gate. After deliberation, `--ratify` adds a structura
 ### When to use --ratify
 
 - **High-stakes irreversible decisions** — architecture choices, business model, security posture
-- **Before automated execution** — approve a PRD before feeding it to Ralph loop
+- **Before automated execution** — approve a PRD before running it in Auto mode
 - **When you have context the panel doesn't** — your REFINE injects what the agents missed
 - **Accountability** — verdict metadata shows what was audited, what was flagged, what you approved
 
@@ -432,7 +432,7 @@ Research (Schulz-Hardt et al. 2006) shows the first structured revision captures
 # Full stress-test with human approval
 /quorum "Should we build or buy auth?" --max --ratify
 
-# Approve PRD before Ralph loop execution
+# Approve PRD before Auto-mode execution
 /quorum "Build user auth with JWT" --max --ratify
 ```
 
@@ -542,7 +542,7 @@ The full panel iterates across rounds until a solution survives sustained attack
 The supervisor also auto-selects structure as needed:
 - **Teams** — if 3+ domains with different incentives. Teams deliberate internally, leads cross-challenge. Socrates questions weakest points, Plato audits evidence
 - **Dialectic** — if the question is binary or philosophical. 2 agents drill through contradiction across rounds
-- **Hackathon** — if the query is "build X". Generates PRD with TDD + acceptance criteria, stress-tests it, outputs Ralph loop command
+- **Hackathon** — if the query is "build X". Generates PRD with TDD + acceptance criteria, stress-tests it, outputs the PRD for you to execute
 
 **Swarm (20-1000+ agents, `--set N`):**
 - **Partition Engine** — MECE taxonomy, each agent gets a unique territory
@@ -572,7 +572,7 @@ graph LR
     G -->|"No"| E
     G -->|"Yes"| H["_swarm/prd-*.md"]
     D -->|"No"| H
-    H --> I["Ralph Loop<br/><i>TDD per task</i>"]
+    H --> I["You execute it<br/><i>Claude Code permission mode of your choice</i>"]
 
     style A fill:#FF3CAC,stroke:#D4006A,color:#fff
     style B fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -601,9 +601,14 @@ graph LR
    - Judge: Computes convergence score. Declares READY or sends back for revision.
 4. **Output:** `_swarm/prd-{name}.md` — ready for implementation
 
-**The Ralph loop** executes each PRD task with fresh context: reads PRD + progress.md -> picks next task -> TDD (test -> fail -> implement -> pass -> commit) -> updates progress -> every 3 tasks runs Quorum review to catch regressions -> repeats until done.
+**Executing the PRD.** Quorum stops at the PRD. It does not run an autonomous build loop of its own. To execute the tasks, open the PRD in Claude Code and choose a permission mode yourself:
 
-**Note:** Ralph loop is local-only. Not included in the published marketplace version.
+- **Default mode:** Claude proposes each edit and command and waits for your approval. Safest; slowest.
+- **Auto mode:** Claude works through the PRD's tasks (test → fail → implement → pass → commit) without asking before each action. Switch with Shift+Tab, or start with `claude --permission-mode auto`.
+
+> **Consent warning.** Auto mode means you are approving every edit and command in advance, not one at a time. Before you turn it on: read the PRD (`--ratify` exists for exactly this); work on a fresh branch or worktree with nothing uncommitted that you care about; keep the task list scoped to what you reviewed; and stay close enough to stop it (Esc). Quorum will never switch modes for you. The choice to run unattended is yours to make, every time.
+
+Earlier versions shipped a shell script (the "Ralph loop") that called `claude --print` in a loop with no approval step. It was removed in v7.4.0: Claude Code's permission modes do the same job, with the consent decision made explicitly by the user instead of by a script.
 
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|

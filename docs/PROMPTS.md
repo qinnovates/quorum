@@ -734,7 +734,7 @@ STOP. Be specific. The agent executing this has zero context beyond this documen
 
 Use the PRD format specified in SKILL.md > Hackathon Mode > PRD Format.
 Every task uses `- [ ]` checkbox syntax.
-Include the Ralph loop execution command at the top.
+At the top, include a one-line note: "Execute in Claude Code in the permission mode you choose. Read the consent warning in SKILL.md before using Auto mode."
 ```
 
 ### Phase S2: Converse Stress-Test Personas
