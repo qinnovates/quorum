@@ -18,7 +18,7 @@ BLOCKED_COMMANDS = (
     ("gh auth token", re.compile(r"\bgh\s+auth\s+token\b")),
     ("printenv", re.compile(r"(?:^|[;&|(`]|\$\()\s*(?:\S*/)?printenv\b")),
     ("env dump", re.compile(r"(?:^|[;&|(`]|\$\()\s*(?:\S*/)?env\s*(?:$|[;&|)>`])")),
-    ("export dump", re.compile(r"\bexport\s+-p\b")),
+    ("export dump", re.compile(r"\b(?:export\s+-p|declare\s+-[px]|typeset\s+-[px]|compgen\s+-e)\b")),
     ("token display", re.compile(r"--show-token\b")),
     ("process environ read", re.compile(r"/proc/[^\s/]+/environ")),
 )

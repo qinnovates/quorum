@@ -252,7 +252,7 @@ def test_bad_usage_is_unknown_not_a_crash(usage):
     assert res.ok and not res.usage_known
 
 
-@pytest.mark.parametrize("command", ["/usr/bin/env", "export -p", "gh auth status --show-token"])
+@pytest.mark.parametrize("command", ["/usr/bin/env", "export -p", "gh auth status --show-token", "declare -x", "compgen -e"])
 def test_hook_blocks_more_dumps(command):
     assert run_hook(command) == 2
 

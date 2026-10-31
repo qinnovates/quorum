@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.4.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.4.1-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -50,7 +50,7 @@ Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give
 | Secrets boundary | Enforces redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config | In code, these protections no longer depend on a model following instructions |
 | Challengers | Renames "adversarial" agents | They test ideas to improve decisions, and the new name says so plainly |
 
-**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, they skip the challenge round, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Today, runs route only the `research` role. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
+**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Today, runs route only the `research` role. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
 
 ## What's New in 7.3.1: Safety Corrections
 
@@ -892,6 +892,10 @@ rank = 3
 Allowed vault commands are `security`, `secret-tool`, `op`, `vault`, `sops`, `aws` and `gcloud`. You can use `api_key_env = "QUORUM_BYO_API_KEY"` instead if your vault injects environment variables.
 
 Remote endpoints must use HTTPS. Redirects are refused. Use a dedicated, least-privilege key with a spending limit where your provider offers one.
+
+### Name your options
+
+If you already know the choices, pass them: `quorum-run start --option postgres --option mysql`. An answer outside the list does not count. Without a list, near-identical names such as "postgres" and "postgresql" stay separate, and the run may end `UNRESOLVED`.
 
 ### Optional integrations
 

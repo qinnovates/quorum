@@ -3,7 +3,7 @@ name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
 argument-hint: '"your question" [--max] [--ratify] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run] [--diverse] [--no-diverse]'
 disable-model-invocation: false
-version: 7.4.0
+version: 7.4.1
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -394,8 +394,10 @@ If `quorum-run` is on PATH and a config exists, use it for `--diverse` runs. Pyt
 1. Write the question to `_swarm/tmp/{timestamp}-question.txt`, then run `quorum-run start --question-file <path> --host-seats <n>`.
 2. If the result has `action: ask`, put its `questions` to the user and stop.
 3. For each entry in `host_seats`, spawn one subagent with exactly that `prompt` and no tools. Give it no other agent's output.
-4. Save each answer to a file, then run `quorum-run record --run <id> --seat <seat> --prompt-hash <hash> --file <path>`. Do not retype answers. `quorum-run` deletes question and answer files after reading them.
-5. Run `quorum-run finish --run <id>` and show the returned `brief` verbatim. If it fails with `FAILED_DIVERSITY`, report that and stop.
+4. If the user named the choices, add `--option <choice>` once per choice to `start`.
+5. Save each answer to a file, then run `quorum-run record --run <id> --seat <seat> --prompt-hash <hash> --file <path>`. Do not retype answers. `quorum-run` deletes question and answer files after reading them.
+6. Run `quorum-run challenge --run <id>`, give each host subagent the returned `prompt` with no tools, save its reply to a file, and run `quorum-run record-challenge --run <id> --file <path>`.
+7. Run `quorum-run finish --run <id>` and show the returned `brief` verbatim. If it fails with `FAILED_DIVERSITY`, report that and stop.
 
 Never edit run state or choose the verdict yourself. Add `Bash(quorum-run:*)` to allowed tools to enable this flow.
 

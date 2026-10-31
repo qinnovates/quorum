@@ -2,6 +2,13 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.4.1 — Review follow-ups
+
+- **Host panelists can challenge.** New `challenge` and `record-challenge` commands. Why: challenge rounds should not skip one side of the panel.
+- **Named options.** `--option` limits answers to your list. Why: similar names should not split the vote.
+- **More guard coverage.** The Bash hook blocks `declare -x`, `typeset -x` and `compgen -e`. Why: these list environment variables too.
+- **`finish` takes the run lock.** Why: two processes should not finish one run.
+
 ## v7.4.0 — Model-agnostic orchestration
 
 ### Added
