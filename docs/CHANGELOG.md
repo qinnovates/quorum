@@ -2,6 +2,15 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.7.0 — Smaller handoffs and run record
+
+- **ID-based handoffs.** Compact claims with stable IDs, and each URL once. Why: agents should not pay to resend known text.
+- **Handoff savings in the brief.** Why: measure the saving rather than assume it.
+- **Hash-linked run record and `quorum-run verify`.** Stores hashes and IDs only. Why: a run's history should be checkable without exposing its content.
+- **Ollama models stay loaded between calls.** Why: reloading wastes time.
+- **Removed unused code:** `RunBudget`, `max_depth`, `pool_stats` and `flip_rate`. `finish_run` and `start_run` split up. Why: code the run loop never calls gives false assurance.
+- **Known limit:** a record shows integrity, not truth. Savings are estimates.
+
 ## v7.6.0 — Orchestrator protocol
 
 - **`references/orchestrator.md` added.** It tells the supervisor how to find the user's models, match work to them, delegate and dedupe research, and spend tokens. Why: Quorum should work with any setup and spend less without weakening independence, Challengers or validation.

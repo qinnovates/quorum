@@ -3,7 +3,7 @@ name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
 argument-hint: '"your question" [--max] [--ratify] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run] [--diverse] [--no-diverse]'
 disable-model-invocation: false
-version: 7.6.0
+version: 7.7.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -18,6 +18,7 @@ allowed-tools:
   - Bash(quorum-run challenge:*)
   - Bash(quorum-run finish:*)
   - Bash(quorum-run dashboard:*)
+  - Bash(quorum-run verify:*)
   - Bash(command -v:*)
   - Bash(ollama list:*)
 ---

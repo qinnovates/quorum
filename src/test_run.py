@@ -582,3 +582,62 @@ def test_empty_allowlist_still_warns(store):
     config.should_fetch_sources = True
     state = start_run(config, QUESTION, store)
     assert "citations may be invented" in finish_run(state, config, store)
+
+
+def finished_run(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")), FakeProvider("o", "openai", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store)
+    finish_run(state, config, store)
+    return store.load(state.run_id)
+
+
+def test_run_record_verifies_and_holds_no_text(store):
+    from orchestrator.provenance import verify_records
+    state = finished_run(store)
+    path = store.run_dir(state.run_id) / "record.jsonl"
+    check = verify_records(path, state.record_head)
+    assert check.is_intact and check.records == state.record_count
+    body = path.read_text()
+    assert "database" not in body and "Evidence favours" not in body and '"kind": "verdict"' in body
+
+
+def test_edited_run_record_fails(store):
+    from orchestrator.provenance import verify_records
+    state = finished_run(store)
+    path = store.run_dir(state.run_id) / "record.jsonl"
+    path.write_text(path.read_text().replace('"status": "DONE"', '"status": "UNRESOLVED"'))
+    assert not verify_records(path, state.record_head).is_intact
+
+
+def test_truncated_run_record_fails(store):
+    from orchestrator.provenance import verify_records
+    state = finished_run(store)
+    path = store.run_dir(state.run_id) / "record.jsonl"
+    path.write_text("".join(path.read_text().splitlines(keepends=True)[:-1]))
+    assert not verify_records(path, state.record_head).is_intact
+
+
+def test_handoff_repeats_a_url_only_once():
+    from orchestrator.handoff import build_handoff, encode_payload
+    from quorum_scorer import Claim
+    url = "https://example.org/a-long-source-address"
+    pool = [Claim(text=f"claim {i}", source=url, source_tier="WEAK") for i in range(5)]
+    assert encode_payload(build_handoff(pool, "r", open_questions=[], debate_summary="")).count(url) == 1
+
+
+def test_brief_reports_handoff_savings(store):
+    def respond(prompt):
+        if "challenger" in prompt:
+            return json.dumps({"objections": []})
+        return answer("x", text="a long supporting claim " * 20)
+    config = config_for(FakeProvider("g", "gemini", respond), FakeProvider("o", "openai", respond))
+    state = start_run(config, QUESTION, store)
+    assert "handoffs:" in finish_run(state, config, store)
+
+
+def test_judge_prompt_survives_a_redacted_source(store):
+    config = high_config({"agrees": True})
+    gemini = config.providers["g"]
+    gemini.responder = lambda p: json.dumps({"agrees": True}) if "independent judge" in p else answer("postgres", source=f"https://example.org/?token={CANARY}")
+    state = start_run(config, HIGH, store)
+    assert "# Decision" in finish_run(state, config, store)

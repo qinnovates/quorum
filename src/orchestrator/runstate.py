@@ -18,6 +18,8 @@ try:
 except ImportError:  # Windows has no fcntl; runs there are single-writer
     fcntl = None
 
+from .provenance import GENESIS_HASH, append_record
+
 _RUN_ID = re.compile(r"^[a-f0-9]{16}$")
 KEY_BYTES = 32
 
@@ -64,6 +66,10 @@ class RunState:
     ratify: bool = False
     judge: dict = field(default_factory=dict)
     criteria: dict[str, float] = field(default_factory=dict)
+    record_head: str = GENESIS_HASH
+    record_count: int = 0
+    handoff_sent_bytes: int = 0
+    handoff_full_bytes: int = 0
     brief: str = ""
 
 
@@ -112,6 +118,12 @@ class RunStore:
             if fcntl is not None:
                 fcntl.flock(handle, fcntl.LOCK_EX)
             yield
+
+    def add_record(self, state: RunState, kind: str, **fields: object) -> None:
+        """Link one record into the run's chain. Fields hold no raw text."""
+        path = self.run_dir(state.run_id) / "record.jsonl"
+        state.record_head = append_record(path, state.record_count, kind, fields, state.record_head)
+        state.record_count += 1
 
     def request_cancel(self, run_id: str) -> None:
         """Works during `finish`: it takes no lock, and calls check it."""

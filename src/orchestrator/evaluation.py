@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,12 +38,6 @@ def brier_score(forecasts: Sequence[tuple[float, bool]]) -> float:
     if not forecasts:
         raise ValueError("brier_score needs at least one forecast")
     return sum((p - float(hit)) ** 2 for p, hit in forecasts) / len(forecasts)
-
-
-def flip_rate(verdict_for_order: Callable[[bool], str], repeats: int) -> float:
-    """Share of paired runs whose verdict changes when panel order is reversed."""
-    flips = sum(verdict_for_order(False) != verdict_for_order(True) for _ in range(repeats))
-    return flips / repeats
 
 
 def control_passes(baseline: dict[str, float], candidate: dict[str, float]) -> bool:

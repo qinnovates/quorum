@@ -7,7 +7,8 @@ from dataclasses import asdict
 from .config import Config
 from .ledger import Ledger
 from .limits import PhaseBudgets
-from .providers import Result
+from .handoff import payload_bytes
+from .providers import CHARS_PER_TOKEN_ESTIMATE, Result
 from .runstate import RunState
 
 
@@ -30,6 +31,11 @@ def usage_report(state: RunState) -> dict:
             cost += row["cost_usd"]
     has_estimates = any(not row["usage_known"] for row in state.usage)
     report = {key: f"{value} tokens" for key, value in sorted(totals.items())}
+    if state.handoff_full_bytes:
+        report["handoffs"] = (
+            f"{state.handoff_sent_bytes // CHARS_PER_TOKEN_ESTIMATE} tokens sent, against "
+            f"{state.handoff_full_bytes // CHARS_PER_TOKEN_ESTIMATE} to resend full answers (estimated)"
+        )
     report["cost"] = f"${cost:.4f}" + ("" if is_cost_complete else " plus unpriced or estimated usage")
     report["token counts"] = "include estimates" if has_estimates else "provider reported"
     return report
@@ -37,3 +43,9 @@ def usage_report(state: RunState) -> dict:
 
 def total_tokens(state: RunState) -> int:
     return sum(row["tokens_in"] + row["tokens_out"] for row in state.usage)
+
+
+def record_handoff(state: RunState, payload: dict) -> None:
+    """Measure a handoff against resending every panel answer in full."""
+    state.handoff_sent_bytes += payload_bytes(payload)
+    state.handoff_full_bytes += sum(payload_bytes(s.answer) for s in state.seats if s.answer)

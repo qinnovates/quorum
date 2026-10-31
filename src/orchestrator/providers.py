@@ -27,6 +27,7 @@ Families = frozenset(
 # They can answer, but they cannot satisfy the diversity floor.
 UNATTRIBUTED_FAMILIES = frozenset({"ollama", "other"})
 CHARS_PER_TOKEN_ESTIMATE = 4
+OLLAMA_KEEP_ALIVE = "10m"
 CHILD_ENV_ALLOWLIST = ("PATH", "HOME", "LANG", "TERM")
 
 
@@ -209,6 +210,7 @@ class OllamaProvider:
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "options": {"num_predict": max_output_tokens},
+            "keep_alive": OLLAMA_KEEP_ALIVE,
         }
         if output_schema is not None:
             body["format"] = output_schema

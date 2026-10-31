@@ -11,9 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
 
-from quorum_scorer import Claim, source_dedup_ratio
+from quorum_scorer import Claim
 
 from .secrets import redact
 
@@ -52,22 +51,6 @@ def dedupe_claims(claims: list[Claim]) -> list[Claim]:
     return list(strongest.values())
 
 
-@dataclass(frozen=True)
-class PoolStats:
-    raw_claims: int
-    unique_claims: int
-    source_dedup_ratio: float
-
-
-def pool_stats(raw: list[Claim]) -> PoolStats:
-    unique = dedupe_claims(raw)
-    return PoolStats(
-        raw_claims=len(raw),
-        unique_claims=len(unique),
-        source_dedup_ratio=source_dedup_ratio(unique),
-    )
-
-
 def build_handoff(
     pool: list[Claim],
     role: str,
@@ -82,26 +65,31 @@ def build_handoff(
         unique,
         key=lambda c: (_tier_rank(c), -c.relevance),
     )[:max_claims]
-    return {
-        "role": role,
-        "claims": [
-            {
-                "id": claim_id(c),
-                "text": redact(c.text)[:TEXT_CAP],
-                "source": redact(c.source) if c.source else c.source,
-                "tier": c.source_tier,
-                "provenance": "agent-output",
-            }
-            for c in ranked
-        ],
-        "open_questions": [redact(q) for q in open_questions[:5]],
-        "debate_summary": redact(debate_summary)[:SUMMARY_CAP],
-        "omitted_claims": len(unique) - len(ranked),
-    }
+    sources: dict[str, str] = {}
+    rows = []
+    for claim in ranked:
+        source = redact(claim.source) if claim.source else ""
+        label = sources.setdefault(source, f"S{len(sources) + 1}") if source else ""
+        rows.append({"id": claim_id(claim), "text": redact(claim.text)[:TEXT_CAP], "src": label, "tier": claim.source_tier})
+    payload: dict = {"role": role, "provenance": "agent-output", "claims": rows}
+    if sources:
+        payload["sources"] = {label: url for url, label in sources.items()}
+    if open_questions:
+        payload["open_questions"] = [redact(q) for q in open_questions[:5]]
+    if debate_summary:
+        payload["debate_summary"] = redact(debate_summary)[:SUMMARY_CAP]
+    if len(unique) > len(ranked):
+        payload["omitted_claims"] = len(unique) - len(ranked)
+    return payload
+
+
+def encode_payload(payload: dict) -> str:
+    """Compact JSON: no spaces, and each URL appears once."""
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def payload_bytes(payload: dict) -> int:
-    return len(json.dumps(payload, sort_keys=True).encode("utf-8"))
+    return len(encode_payload(payload).encode("utf-8"))
 
 
 def full_pool_bytes(pool: list[Claim]) -> int:
