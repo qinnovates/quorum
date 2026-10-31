@@ -2,6 +2,26 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.4.0 — Model-agnostic orchestration
+
+### Added
+- **`quorum-run` orchestrator.** Python now owns run state, budgets, gates and the verdict. Why: rules written only as prompts depend on the model following them.
+- **Family floor in code.** Runs stop with `FAILED_DIVERSITY`, and need at least one Python-called model. Why: a panel on one model is an echo chamber.
+- **Decision brief, evidence weighting and `UNRESOLVED`.** Why: the output should be a defensible decision. Confidence and verbosity no longer buy influence.
+- **Evidence-based model routing.** Why: model choice should rest on dated evidence the user controls, not reputation.
+- **Phase budgets, stakes sizing, stop rule and ledger.** Why: spend tokens where they change the decision, and show the spend.
+- **Handoff provenance, Tasktrack, intent step, event log and eval measures.** Why: less repeated work, better questions, and a stable base for a future control center.
+- **Secrets boundary.** One redaction chokepoint, reference-only credentials, stdin prompts, an allowlisted child environment, HTTPS and refused redirects, untrusted project config, and a Bash guard hook. Why: a user's keys must never depend on model behaviour.
+- **CI.** Tests run on pushes and pull requests.
+
+### Changed
+- **"Adversarial" agents are now "Challengers".** Why: the word suggested an attack tool. They exist to test ideas. This replaces the v7.3.0 wording.
+
+### Known limits
+- Host subagents are reported to Quorum, not observed by it, and their usage is estimated.
+- Quality and token savings are not yet measured against a single strong model.
+- Weights, budget shares and thresholds are unvalidated starting settings.
+
 ## v7.3.1 — Safety corrections
 
 ### Security

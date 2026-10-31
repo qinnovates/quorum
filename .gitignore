@@ -4,3 +4,6 @@ _swarm/
 .DS_Store
 __pycache__/
 *.pyc
+quorum.toml
+.env
+.env.*

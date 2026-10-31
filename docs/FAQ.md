@@ -70,7 +70,7 @@ For exploratory questions where you want the full landscape, clusters are fine. 
 | Scenario | Recommended | Why |
 |----------|------------|-----|
 | Quick opinion on a scoped question | Default (5 agents) | Gets the structure right in ~2 minutes |
-| Stress-testing a decision | `--max` (7-15 agents) | Adversarial-driven convergence with iterative rounds |
+| Stress-testing a decision | `--max` (7-15 agents) | Challenge-driven convergence with iterative rounds |
 | Research landscape | `--set 50-100` | MECE partitioning covers more territory |
 | Prediction / forecasting | `--set 100+` | Swarm architecture with pattern detection |
 | High-stakes architecture decision | `--max --ratify` | Full convergence + human approval gate |
@@ -135,16 +135,16 @@ Three axes that change *how* an agent reasons, not *what* it knows:
 
 CDPs are assigned **anti-stereotypically**: a security expert gets HIGH risk tolerance (forced to see opportunities), a creative gets HIGH skepticism (forced to pressure-test ideas). The tension between persona and CDP produces reasoning neither alone would generate.
 
-### Does the number of adversarial agents matter?
+### Does the number of Challengers matter?
 
-Yes. Quorum enforces a minimum of 2 adversarial agents per panel of 5+. The research basis:
+Yes. Quorum enforces a minimum of 2 Challengers per panel of 5+. The research basis:
 
 - **Asch (1951):** A single dissenter reduces conformity from 32% to 5%
 - **Moscovici (1969):** A minority of 2 establishes a credible pattern — 1 is dismissed as eccentric
 - **Nemeth (2001):** Assigned devil's advocacy makes people MORE entrenched. Critics must hold authentic positions
 - **Schweiger (1986):** Critics who propose counter-plans produce 34% higher decision quality than critics who only attack
 
-This is why Quorum's adversarial agents must counter-propose, not just critique.
+This is why Quorum's Challengers must counter-propose, not just critique.
 
 ---
 
@@ -284,7 +284,7 @@ N = Novelty Decay = 1 - (new arguments this round / new arguments round 1)
 If N > 0.9 for 2 consecutive rounds → EXHAUSTED
 ```
 
-It's a measured signal, not a vote count. C >= 0.8 means: agents are running out of attacks and surviving claims are defending successfully against adversarial pressure. Novelty decay (N) is tracked as a termination signal but removed from the score — it correlates >0.9 with A and adds noise rather than signal. It's adjusted for cognitive diversity (C* = C x (1 + 0.3 x (CDI - 0.5))) so agreement among diverse thinkers counts for more.
+It's a measured signal, not a vote count. C >= 0.8 means: agents are running out of attacks and surviving claims are defending successfully against challenger pressure. Novelty decay (N) is tracked as a termination signal but removed from the score — it correlates >0.9 with A and adds noise rather than signal. It's adjusted for cognitive diversity (C* = C x (1 + 0.3 x (CDI - 0.5))) so agreement among diverse thinkers counts for more.
 
 The score is useful as a stopping criterion and relative confidence indicator. It is not a probability and should not be interpreted as one.
 
