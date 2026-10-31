@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.5.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.6.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -27,6 +27,33 @@ The result: answers that have been **questioned, attacked, defended, and validat
 Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
+
+## What's New in 7.6.0: Orchestrator Protocol
+
+| Feature | What it does | Why |
+|---|---|---|
+| Model discovery | Finds the models, CLIs and config you actually have, and treats a tool as available only once it answers | Quorum should fit your setup, not assume one |
+| Work matching | Uses code first, then the cheapest capable model, moving up only on evidence or a real dispute | Most steps do not need the strongest model |
+| Research delegation | Gives each research question one owner and tracks it in a ledger | Agents should not pay to find the same source twice |
+| Safe dedupe | Shares facts between panelists but never conclusions | Saving tokens must not break independent first opinions |
+| Build report | Shows which models were found, how work was routed and what was skipped | You can see why the run was built that way |
+| One exit route | The skill no longer calls Gemini or Codex directly. External calls go only through `quorum-run` | A model reading untrusted panel text should not hold direct access to tools that can run commands |
+| Consent in code | `start` refuses until you name each remote provider with `--allow-provider`. `start` is not pre-approved, so you see it first | Your data should leave your machine only with your say-so |
+| `quorum-run doctor` | Checks config, keys, providers and `.gitignore` and names each fix, without printing secret values | Setup problems should surface before a run spends tokens |
+| Signed run state | Refuses run files edited outside `quorum-run` | Accidental or casual edits should not change a verdict |
+| Handoff limits | Reads question and answer files only from `_swarm/tmp/`, and deletes them after a successful read | The tool should not be usable to read and delete any file |
+| Source checking | With `fetch_sources` and your `allowed_hosts`, Python fetches cited pages on those hosts and looks for the exact quote. Unchecked citations score low | A made-up URL should not count as evidence |
+| Decision criteria | `--criterion cost:3` and `--option` set what matters and what is on the table. A "keep things as they are" option is added | Wording should not pick the winner |
+| Flip-only review | Challengers review only claims that could change the verdict, in one round | Review tokens should go where they can change the outcome |
+| Strength routing | High stakes prefer your strongest model. Set `strength` for each provider | Cost and capability are different things |
+| Orchestrator model | Proposes merging spellings of one option, such as "postgres" and "postgresql". Code applies only true variants, the brief shows each merge, and it never judges | Cheap work stays cheap, and a bad merge should not rig the vote |
+| Smaller skill | `SKILL.md` is now a short router, and mode details load on demand | Instructions you do not need should not cost tokens |
+| Decision regret | `eval` reports regret, charging `UNRESOLVED` a fixed cost | Success means better decisions, not just matching answers |
+| One-command install | `scripts/install.sh` adds the skill and `quorum-run`, finds your models and writes a keyless config. `quorum-run setup` can redo the config | A newcomer should not need to hand-edit files before their first answer |
+| Blind first answers | Panelists answer before seeing shared facts, then changes are recorded | One bad source must not pass for agreement |
+| Safer CLI config | Accepts only known-safe CLI arguments and passes your configured model to the CLI | Panelists should not act on your machine, and routing should match what runs |
+
+The protocol lives in [`references/orchestrator.md`](references/orchestrator.md) and loads once per run, so `SKILL.md` stays smaller. **Limits:** the protocol is guidance to the model, so it is not enforced like `quorum-run` code. The host model can still read files you let it read, including run files, so blind first answers depend on it following the protocol. Signing is tamper-evidence, not a sandbox: a process running as you can read the signing key. Prompt mode is now single-family. Source checking is off by default, because it contacts the cited hosts. Without it, citations are only checked for format and the brief says so. Claims are not yet classified as for or against an option. Token savings are not yet measured.
 
 ## What's New in 7.5.0: Judge, Routing and Control Center
 
@@ -52,7 +79,8 @@ graph TD
     PLAN --> P1["Independent answers<br/><i>same question, no shared answers</i>"]
     P1 --> GATE{"Family floor<br/><i>enough families?</i>"}
     GATE -->|"No"| FAIL["FAILED_DIVERSITY<br/><i>run stops</i>"]
-    GATE -->|"Yes"| CH["Challenge round<br/><i>authors hidden, sources required</i>"]
+    GATE -->|"Yes"| SRC["Source check<br/><i>if you turn it on</i>"]
+    SRC --> CH["Challenge round<br/><i>only claims that could flip the verdict</i>"]
     CH --> W["Evidence weighting<br/><i>each family counts once</i>"]
     W --> TRIG{"Verdict, with high<br/>stakes or a trigger?"}
     TRIG -->|"Yes"| J["Final judge<br/><i>can withhold, cannot choose</i>"]
@@ -67,6 +95,7 @@ graph TD
     style P1 fill:#2B86C5,stroke:#1A6B9E,color:#fff
     style GATE fill:#E040FB,stroke:#AB00D9,color:#fff
     style FAIL fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style SRC fill:#784BA0,stroke:#5C3D8F,color:#fff
     style CH fill:#2B86C5,stroke:#1A6B9E,color:#fff
     style W fill:#784BA0,stroke:#5C3D8F,color:#fff
     style TRIG fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -87,7 +116,7 @@ graph LR
     EV -->|"No"| UN["Cheapest eligible,<br/>marked unproven"]
     PH & PR & UN --> CALL["Model call<br/><i>capped, then recorded</i>"]
     CALL --> LED["Ledger<br/><i>by phase, role and model</i>"]
-    CALL --> STOP{"New evidence or<br/>verdict moving?"}
+    CALL --> STOP{"Could this claim<br/>flip the verdict?"}
     STOP -->|"Yes"| CALL
     STOP -->|"No"| END["Stop spending"]
 
@@ -106,7 +135,7 @@ graph LR
 
 ## What's New in 7.4.0: Model-Agnostic Orchestration
 
-Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give you one best-supported decision while spending as few tokens as it can, across models you choose.
+Quorum now has an optional Python orchestrator, `quorum-run`. It checks and records the run, but the host model still runs on your machine, so read Limits below. Its job is to give you one best-supported decision while spending as few tokens as it can, across models you choose.
 
 | Feature | What it does | Why |
 |---|---|---|
@@ -123,10 +152,10 @@ Quorum now has an optional Python orchestrator, `quorum-run`. Its job is to give
 | Tasktrack | Records topics researched and flags exact repeats in the brief | You should see when work was already done. Similar questions may differ, so nothing is merged automatically |
 | Intent step | Asks when a question is vague, or states its assumptions | A precise question saves more tokens than any later control |
 | Event log | Writes up to 12 event types, redacted, for any UI to read. Notes are data | A control center can come later without trusting note text as commands |
-| Secrets boundary | Enforces redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config | In code, these protections no longer depend on a model following instructions |
+| Secrets boundary | Redaction, reference-only keys, stdin prompts, a clean child environment, HTTPS, and untrusted project config, all in `quorum-run` | In code, these protections do not depend on a model following instructions |
 | Challengers | Renames "adversarial" agents | They test ideas to improve decisions, and the new name says so plainly |
 
-**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Quorum does not check that cited sources exist, so a cited claim stays below STRONG unless you list the source in `verified_sources`. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
+**Limits:** Claude panelists run as host subagents, so Quorum issues their prompts and records their answers but cannot observe those calls. Their usage is an estimate, and the brief says so. Without `fetch_sources`, Quorum does not check that cited sources exist. Token savings and decision quality have not yet been measured against a single strong model. The default weights, budget shares and thresholds are starting settings, not validated values. The prompt-only `/quorum` flow still works as before.
 
 ## What's New in 7.3.1: Safety Corrections
 
@@ -230,15 +259,68 @@ Quorum works on any question worth debating. Here are five:
 
 ## Quick Start
 
-```bash
-# Install
-claude install qinnovates/quorum
+### New to Claude Code? Start here
 
-# Ask anything — 5 agents, auto-configured
-/quorum "Should we build this feature custom or buy a SaaS tool?"
+You need a Mac or Linux computer. You will type a few commands into the Terminal app.
+
+**1. Install Claude Code and sign in.** Follow Anthropic's [quickstart](https://code.claude.com/docs/en/quickstart). Then run `claude --version` in Terminal. If you see a version number, it worked.
+
+**2. Install Quorum.** You will need [Git](https://git-scm.com/downloads). Paste these lines into Terminal:
+
+```bash
+git clone https://github.com/qinnovates/quorum.git
+cd quorum
+./scripts/install.sh
 ```
 
-That's it. Quorum picks the right experts, makes them debate, and delivers what survived scrutiny. Everything below is details.
+The installer adds the skill, checks which models you have, and writes a config with no keys in it. It does not need admin rights, and it never asks for an API key. It finishes by listing your next steps. Do them in order.
+
+**3. Ask your first question.** Open any project folder in Terminal, start Claude Code, and type `/quorum` with your question:
+
+```bash
+cd your-project
+claude
+```
+
+```text
+/quorum "Should we build this feature ourselves or buy a tool?"
+```
+
+That is all you need. Claude assembles a panel of experts, and you get an answer that has been challenged. If your question is vague, Quorum asks you to clarify first. Claude Code may ask permission before some steps, so read each request before you approve it.
+
+**4. Optional: add other AI models for more independent reviews.** Different personas on one model share the same blind spots, so a second model family helps.
+
+| Add | How | Good for |
+|---|---|---|
+| Ollama | Install [Ollama](https://ollama.com), run `ollama pull <model>`, and leave it running | Free, and prompts stay on your computer |
+| Gemini CLI | Install it, then run `gemini` and sign in | A second model family |
+| Codex CLI | Install it, then run `codex login` | A second model family |
+
+To connect one by hand, open `~/.config/quorum/quorum.toml`. The installer leaves a commented placeholder with steps for each model type you have not connected: Gemini, Codex, Ollama and any OpenAI-compatible API. Remove the `#` marks, replace the `<angle brackets>`, and run `quorum-run doctor`.
+
+Or, after installing a CLI or Ollama, let Quorum detect it:
+
+```bash
+quorum-run setup --force
+quorum-run doctor
+```
+
+`doctor` shows `OK` or `FIX` for each item, and each `FIX` says what to do. `setup --force` replaces your config and keeps each old one as a numbered `quorum.toml.previous` backup.
+
+Quorum asks before sending your question to any outside provider. Read [your API safety checklist](#your-api-safety-checklist) before you connect a paid API.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `claude: command not found` | Repeat step 1, then open a new Terminal window |
+| `/quorum` is not recognized | Run `./scripts/install.sh` again, then restart Claude Code |
+| `quorum-run: command not found` | Follow the PATH step the installer printed, then open a new Terminal window |
+| Python is too old | Install Python 3.11 or newer. `/quorum` still works without it, using Claude only |
+| `FAILED_DIVERSITY` | Too few model families answered. Run `quorum-run doctor` and do what each `FIX` says |
+| A provider hangs or fails | It may need sign-in. Run `quorum-run doctor --live --allow-provider <name>` |
+
+To update, run `git pull` in your `quorum` folder, then run `./scripts/install.sh` again. To uninstall, delete `~/.claude/skills/quorum`, `~/.local/share/quorum`, `~/.local/bin/quorum-run` and `~/.config/quorum`.
 
 ## The Problem With AI Research Today
 
@@ -833,7 +915,7 @@ CDI = 0.15 × D_p + 0.3 × D_r + 0.3 × D_o + 0.25 × D_m
 D_m = 1 − (agents from most common model / total agents)
 ```
 
-Cross-model agreement is treated as stronger evidence. A multi-model diverse panel can converge at C = 0.68. A homogeneous all-Claude panel needs C = 0.88.
+Cross-model agreement counts as stronger evidence, but it is not proof.
 
 ## Rules for Prompts That Don't Produce Garbage
 
@@ -902,7 +984,7 @@ That's why Quorum defaults to 5 agents with mandatory equal participation. Not b
 
 **Critics who propose alternatives produce 34% better decisions than critics who only attack.** Saying "this won't work" is free nihilism. Saying "this won't work, and here's what would" produces measurably higher decision quality (Schweiger 1986). That's why Quorum requires counter-proposals. No free attacks.
 
-**Caveat on the science:** Woolley studied humans with genuinely different knowledge and cognitive styles. Quorum uses multiple instances of the same base model. The transfer is theoretical, not proven. Du et al. (2023) validates that multi-agent AI debate improves output. But the specific Woolley mechanism (emergent collective intelligence from conversational equality) has not been independently confirmed in LLM systems. Quorum's architecture is designed as if the mechanism transfers, and empirically it produces better results. We don't claim the cognitive science is settled for AI.
+**Caveat on the science:** Woolley studied humans with genuinely different knowledge and cognitive styles. Quorum uses multiple instances of the same base model. The transfer is theoretical, not proven. Du et al. (2023) validates that multi-agent AI debate improves output. But the specific Woolley mechanism (emergent collective intelligence from conversational equality) has not been independently confirmed in LLM systems. Quorum's architecture is designed as if the mechanism transfers, but we have not yet measured whether it produces better results. We don't claim the cognitive science is settled for AI.
 
 ## Output Format
 
@@ -939,7 +1021,8 @@ graph TD
     O -->|"stdin, clean environment,<br/>empty folder"| CLI["Gemini and Codex CLIs"]
     O -->|"HTTPS, key in header,<br/>no redirects"| API["OpenAI-compatible APIs"]
     O -->|"localhost, no proxy"| LOC["Ollama"]
-    O -->|"issued prompt, recorded answer<br/><i>not observed by Quorum</i>"| HOST["Host subagents"]
+    O -->|"public HTTPS only, no redirects,<br/>page text stays in Python"| WEB["Cited sources<br/><i>optional</i>"]
+    O -->|"issued prompt, recorded answer<br/><i>not observed by Quorum</i>"| HOST["Host model and subagents<br/><i>untrusted client</i>"]
     CLI & API & LOC & HOST -->|"untrusted answers,<br/>redacted on arrival"| O
     O --> FILES["Private run files<br/><i>state, events, dashboard</i>"]
 
@@ -950,15 +1033,45 @@ graph TD
     style CLI fill:#2B86C5,stroke:#1A6B9E,color:#fff
     style API fill:#2B86C5,stroke:#1A6B9E,color:#fff
     style LOC fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style WEB fill:#784BA0,stroke:#5C3D8F,color:#fff
     style HOST fill:#FF3CAC,stroke:#D4006A,color:#fff
     style FILES fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
+### Your API safety checklist
+
+You own your keys and your data. Before you connect anything:
+
+1. **Store the key in a vault.** Never hardcode it in code, config, a prompt, a URL or a commit.
+2. **Create a dedicated key for Quorum.** Do not reuse a personal or production key.
+3. **Give it the least access** that works, and set a spending limit where your provider offers one.
+4. **Review a cloned repo's `quorum.toml`.** Quorum limits what it can do, but read it anyway.
+5. **Decide what may leave your machine.** Every remote provider you allow receives your question under its own terms.
+6. **Rotate on any doubt.** If a key reached a file, prompt, log or commit, replace it. Deleting it is not enough.
+7. **Rotate on a schedule** that suits your risk, and remove keys you no longer use.
+
+The Bash guard in `hooks/guard_bash.py` protects work inside this repository only. It is a blocklist, so it reduces risk without stopping a determined bypass. To use it elsewhere, add it to your own Claude Code settings.
+
+### Getting an unbiased panel
+
+Different personas on one model share one set of training data, so they are not independent reviewers. For a more independent panel:
+
+1. **Use different model families.** Family means who trained the model. Connect at least two beyond your host model where you can.
+2. **Mix hosted and local models.** A local model adds a family and keeps prompts on your machine.
+3. **Set `family` honestly** to the developer that trained the model. Unlabelled models do not count toward the floor.
+4. **Keep the floor on.** A run that falls below it stops with `FAILED_DIVERSITY`.
+5. **Name your options** with `--option`, so wording does not split the vote.
+6. **Check for single-family claims** in the brief. They need more scrutiny.
+7. **Add a model only if it adds a family or a skill.** Extra seats on the same model add cost, not independence.
+
+Diversity reduces shared blind spots, but it cannot remove them. Models can share training data, so treat agreement as evidence and never as proof.
+
 ### Set up
 
-1. Install: `pip install .` from this repository.
-2. Create `~/.config/quorum/quorum.toml` from `docs/quorum.example.toml`.
+1. Run `./scripts/install.sh`, which creates `~/.config/quorum/quorum.toml`.
+2. Edit that file. `docs/quorum.example.toml` shows every option.
 3. Add providers below and set `[panel] min_families` and `[limits]`.
+4. Run `quorum-run doctor` to check your setup. Run `quorum-run doctor --live --allow-provider <name>` to send a test prompt to each provider.
 
 All providers, keys, evidence and prices live in that user-level file, and `quorum-run` requires it. A `quorum.toml` in a project is untrusted: it can only raise `[panel] min_families` or lower `[limits]`. This stops a cloned repo sending your data or keys to its own endpoint, or forging evidence.
 
@@ -1013,6 +1126,16 @@ Every integration is optional. `/quorum` works without any of them. Add one when
 To use a local model for neutral summaries, add `[pm]` with `provider = "<provider name>"`. It never judges, and it does not take a panel seat.
 
 **Test status:** these integrations are covered by automated tests with simulated providers. Quorum has not yet verified a real answer through each one, so try a low-stakes question first. If a CLI is not logged in, the run reports that seat as failed.
+
+### Check cited sources
+
+```toml
+[verification]
+fetch_sources = true
+allowed_hosts = ["arxiv.org", "<a-site-you-trust>"]
+```
+
+This is off by default. Quorum contacts only the hosts you list, because a model could otherwise hide your question inside a URL. Page text never reaches a model. Private addresses, redirects, long queries and non-HTTPS links are refused.
 
 ### Add routing evidence
 

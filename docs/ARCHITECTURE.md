@@ -178,6 +178,8 @@ Your answers shape which experts I bring in and what they optimize for.
 
 **Codex CLI Prompt Improvement (v7.3.0):**
 
+**Removed in v7.6.0:** the skill no longer calls Codex directly, so this section is historical.
+
 When the vagueness gate fires and Codex CLI is detected (`codex exec "ping"` succeeds), the supervisor invokes Codex to generate 3 alternative prompt reformulations:
 
 ```bash

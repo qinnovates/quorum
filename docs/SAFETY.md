@@ -10,7 +10,9 @@
 
 Enforced by your host tool: the skill's `allowed-tools` list and your permission mode.
 
-Do not rely on Quorum as a security boundary for secrets or sensitive data. Keep credentials out of questions and artifacts, keep them in a vault you own, and never hardcode them. Use `--no-diverse` for material that must not reach third-party providers.
+Enforced by `quorum-run`, when you use it: consent for remote providers, the family floor, budgets, redaction, reference-only keys, signed run state, and limits on project config. The host model still runs as you, so these controls cannot contain a host that has been granted broad permissions. Keep your permission mode conservative.
+
+Do not rely on Quorum as a security boundary for secrets or sensitive data. Keep credentials out of questions and artifacts, keep them in a vault you own, and never hardcode them. Do not allow a remote provider for material that must not reach third parties.
 
 ## 0. On Hallucination: Why No LLM Is Hallucination-Proof
 

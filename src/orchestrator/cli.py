@@ -7,22 +7,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .config import Config, ConfigError, load, tighten
 from .diversity import DiversityError
+from .doctor import remote_providers, run_doctor
 from .intent import IntentResult
 from .conclude import finish_run, issue_host_challenge, live_claims, record_host_challenge
 from .dashboard import REFRESH_SECONDS, write_dashboard
 from .evaluation import control_passes, load_cases, run_arm
 from .run import RunError, log_for, record_host_answer, start_run
 from .secrets import redact
+from .setup_config import detect_tools, write_user_config
 from .runstate import RunStore, default_state_dir
 
 WATCH_LIMIT_SECONDS = 3600
+HANDOFF_PARENT = "_swarm"
+HANDOFF_DIR = "_swarm/tmp"
+MAX_HANDOFF_BYTES = 1_000_000
 USER_CONFIG = Path.home() / ".config" / "quorum" / "quorum.toml"
 PROJECT_CONFIG = Path("quorum.toml")
 
@@ -35,33 +42,89 @@ def _load_config() -> Config:
     return tighten(config, load(PROJECT_CONFIG)) if PROJECT_CONFIG.exists() else config
 
 
-def _consume(path_text: str) -> str:
-    """Read a handoff file, then delete it so its text does not linger."""
-    path = Path(path_text).resolve(strict=True)
-    text = path.read_text(encoding="utf-8")
-    path.unlink()
-    return text
+@dataclass(frozen=True)
+class Handoff:
+    path: str
+    inode: int
+    text: str
+
+
+def _read_handoff(path_text: str) -> Handoff:
+    """Read a regular, unlinked file directly inside the project's _swarm/tmp."""
+    root = Path.cwd()
+    path = os.path.abspath(path_text)
+    if os.path.dirname(path) != str(root / HANDOFF_DIR):
+        raise RunError(f"handoff files must be directly inside {HANDOFF_DIR}")
+    if any(os.path.islink(root / part) for part in (HANDOFF_PARENT, HANDOFF_DIR)):
+        raise RunError(f"{HANDOFF_DIR} must not be a symbolic link")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(descriptor, "rb") as stream:
+        status = os.fstat(stream.fileno())
+        if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
+            raise RunError("handoff files must be regular files with one link")
+        if status.st_size > MAX_HANDOFF_BYTES:
+            raise RunError(f"handoff file is over {MAX_HANDOFF_BYTES} bytes")
+        return Handoff(path, status.st_ino, stream.read().decode("utf-8"))
+
+
+def _discard_handoff(handoff: Handoff) -> None:
+    """Delete only the file that was read, never a swapped-in replacement."""
+    status = os.lstat(handoff.path)
+    if stat.S_ISREG(status.st_mode) and status.st_ino == handoff.inode:
+        os.unlink(handoff.path)
+
+
+def _require_consent(config: Config, allowed: list[str]) -> None:
+    """Content leaves this machine only for providers the user named."""
+    missing = sorted(set(remote_providers(config)) - set(allowed))
+    if missing:
+        flags = " ".join(f"--allow-provider {name}" for name in missing)
+        raise RunError(f"this sends your question to {', '.join(missing)}. Ask the user, then add: {flags}")
+
+
+def _criteria(rows: list[str]) -> dict[str, float]:
+    """Parse `name:weight` pairs, such as `cost:3`."""
+    parsed = {}
+    for row in rows:
+        name, _, weight = row.rpartition(":")
+        if not name or not weight.replace(".", "", 1).isdigit() or float(weight) <= 0:
+            raise RunError(f"criterion {row!r} must look like cost:3")
+        parsed[name.strip()] = float(weight)
+    return parsed
+
+
+def _floor_is_reachable(state, config: Config) -> bool:
+    families = {s.family for s in state.seats if s.status != "failed"}
+    return len(families) >= config.min_families
 
 
 def _start(args, config, store) -> dict:
+    _require_consent(config, args.allow_provider)
+    handoff = _read_handoff(args.question_file)
+    args.question = handoff.text
     state = start_run(
         config, args.question, store, host_seats=args.host_seats, epic=args.epic,
-        options=args.option, ratify=args.ratify,
+        options=args.option, ratify=args.ratify, criteria=_criteria(args.criterion),
     )
+    _discard_handoff(handoff)
     if isinstance(state, IntentResult):
         return asdict(state)
+    failed = [{"seat": s.seat_id, "provider": s.provider, "error": s.error} for s in state.seats if s.status == "failed"]
+    if not _floor_is_reachable(state, config):
+        return {"run_id": state.run_id, "status": "FAILED_DIVERSITY", "failed_seats": failed}
     open_seats = [
         {"seat": s.seat_id, "prompt": s.prompt, "prompt_hash": s.prompt_hash, "max_output_tokens": s.max_output_tokens}
         for s in state.seats if s.status == "issued"
     ]
-    return {"run_id": state.run_id, "stakes": state.stakes, "host_seats": open_seats}
+    return {"run_id": state.run_id, "stakes": state.stakes, "host_seats": open_seats, "failed_seats": failed}
 
 
 def _record(args, config, store) -> dict:
-    text = _consume(args.file)
+    handoff = _read_handoff(args.file)
     with store.locked(args.run):
         state = store.load(args.run)
-        seat = record_host_answer(state, config, store, args.seat, args.prompt_hash, text)
+        seat = record_host_answer(state, config, store, args.seat, args.prompt_hash, handoff.text)
+    _discard_handoff(handoff)
     return {"seat": seat.seat_id, "status": seat.status}
 
 
@@ -76,9 +139,11 @@ def _challenge(args, config, store) -> dict:
 
 
 def _record_challenge(args, config, store) -> dict:
-    text = _consume(args.file)
+    handoff = _read_handoff(args.file)
     with store.locked(args.run):
-        return {"new_disputes": record_host_challenge(store.load(args.run), config, store, text)}
+        found = record_host_challenge(store.load(args.run), config, store, handoff.text)
+    _discard_handoff(handoff)
+    return {"new_disputes": found}
 
 
 def _note(args, config, store) -> dict:
@@ -108,7 +173,8 @@ def _dashboard(args, config, store) -> dict:
 
     def refresh() -> Path:
         state = store.load(args.run)
-        return write_dashboard(state, run_dir, live_claims(state, config))
+        is_blind = any(seat.status == "issued" for seat in state.seats)
+        return write_dashboard(state, run_dir, None if is_blind else live_claims(state, config))
 
     path = refresh()
     print(f"dashboard: {path}", file=sys.stderr, flush=True)
@@ -119,7 +185,18 @@ def _dashboard(args, config, store) -> dict:
     return {"dashboard": str(path)}
 
 
+def _doctor(args, config, store) -> dict:
+    if args.live:
+        _require_consent(config, args.allow_provider)
+    lines = [
+        f"{'OK ' if check.is_ok else 'FIX'} {check.name}: {check.detail}"
+        for check in run_doctor(config, live=args.live)
+    ]
+    return {"text": "\n".join(lines)}
+
+
 def _eval(args, config, store) -> dict:
+    _require_consent(config, args.allow_provider)
     report = run_arm(config, load_cases(Path(args.cases)), store)
     if args.baseline:
         baseline = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
@@ -132,10 +209,12 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     start = commands.add_parser("start")
     start.add_argument("--question-file", required=True)
+    start.add_argument("--allow-provider", action="append", default=[])
     start.add_argument("--host-seats", type=int, default=0)
     start.add_argument("--epic", default="general")
     start.add_argument("--option", action="append", default=[])
     start.add_argument("--ratify", action="store_true")
+    start.add_argument("--criterion", action="append", default=[])
     start.set_defaults(handler=_start)
     record = commands.add_parser("record")
     for name in ("--run", "--seat", "--prompt-hash", "--file"):
@@ -166,20 +245,28 @@ def _parser() -> argparse.ArgumentParser:
     evaluate = commands.add_parser("eval")
     evaluate.add_argument("--cases", required=True)
     evaluate.add_argument("--baseline")
+    evaluate.add_argument("--allow-provider", action="append", default=[])
     evaluate.set_defaults(handler=_eval)
+    setup = commands.add_parser("setup")
+    setup.add_argument("--force", action="store_true")
+    doctor = commands.add_parser("doctor")
+    doctor.add_argument("--live", action="store_true")
+    doctor.add_argument("--allow-provider", action="append", default=[])
+    doctor.set_defaults(handler=_doctor)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "setup":
+        print(write_user_config(USER_CONFIG, detect_tools(), force=args.force))
+        return 0
     try:
-        if args.command == "start":
-            args.question = _consume(args.question_file)
         payload = args.handler(args, _load_config(), RunStore(default_state_dir()))
     except (ConfigError, DiversityError, RunError, OSError, ValueError, KeyError) as exc:
         print(f"quorum: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(payload, indent=2))
+    print(payload["text"] if set(payload) == {"text"} else json.dumps(payload, indent=2))
     return 0
 
 

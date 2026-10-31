@@ -33,6 +33,13 @@ LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 UNTRUSTED_SECTIONS = frozenset({"panel", "limits"})
 CLI_BINARY_FAMILIES = {"gemini_cli": ("gemini", "gemini"), "codex_cli": ("codex", "openai")}
 CREDENTIAL_REFERENCE_KEYS = frozenset({"api_key_env", "api_key_cmd"})
+ALLOWED_CLI_ARGS = {
+    "gemini": frozenset({"--skip-trust", "--approval-mode", "plan", "-p", "-o", "json", "text", "-m"}),
+    "codex": frozenset({"exec", "--skip-git-repo-check", "--sandbox", "read-only", "--json", "-", "-m"}),
+}
+FREE_TEXT_FLAGS = frozenset({"-p", "-m"})
+_MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
+MODEL_FLAG_POSITION = {"gemini": 1, "codex": 2}
 _CREDENTIAL_KEY = re.compile(r"(?i)api_?key|token|secret|password|credential")
 _ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 
@@ -77,6 +84,32 @@ def _validate_binary(name: str, argv: list[str], allowed: frozenset[str], field_
         )
 
 
+def _reject_unsafe_flags(name: str, command: list[str]) -> None:
+    """Allow known-safe arguments only. Denylists miss new or combined flags."""
+    allowed = ALLOWED_CLI_ARGS[command[0]]
+    previous = ""
+    for part in command[1:]:
+        if previous in FREE_TEXT_FLAGS and not part.startswith("-"):
+            previous = ""
+            continue
+        if part not in allowed:
+            raise ConfigError(
+                f"providers.{name}.command: {part!r} is not on the safe list, which blocks "
+                "approval-bypass flags. Panelists must not be able to act on your machine"
+            )
+        previous = part
+
+
+def _with_model_flag(command: list[str], binary: str, model: str) -> list[str]:
+    """Pass the configured model, so routing evidence matches what actually runs."""
+    if model.startswith("<") or model == "default" or "-m" in command:
+        return command
+    if not _MODEL_NAME.match(model):
+        raise ConfigError(f"model name {model!r} has characters that are not allowed")
+    position = MODEL_FLAG_POSITION[binary]
+    return [*command[:position], "-m", model, *command[position:]]
+
+
 def _credential(name: str, spec: dict) -> Secret | None:
     present = CREDENTIAL_REFERENCE_KEYS & spec.keys()
     if not present:
@@ -102,6 +135,8 @@ class Config:
     evidence: list[RoleEvidence] = field(default_factory=list)
     role_bars: dict[str, float] = field(default_factory=dict)
     verified_sources: frozenset[str] = frozenset()
+    should_fetch_sources: bool = False
+    allowed_source_hosts: frozenset[str] = frozenset()
     phase_shares: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_PHASE_SHARES))
     pricing: dict[str, Price] = field(default_factory=dict)
     confidence_floor: float | None = None
@@ -126,6 +161,8 @@ def _build_provider(name: str, spec: dict) -> Provider:
             )
         binary, family = CLI_BINARY_FAMILIES[kind]
         _validate_binary(name, command, frozenset({binary}), "command")
+        _reject_unsafe_flags(name, command)
+        command = _with_model_flag(command, binary, str(spec["model"]))
         if declared_family not in (None, family):
             raise ConfigError(f"providers.{name}: a {binary} command is family {family}")
         return CliProvider(
@@ -198,6 +235,10 @@ def load(path: str | Path, *, trusted: bool = False) -> Config:
         evidence=[RoleEvidence(**row) for row in data.get("evidence", [])],
         role_bars={k: float(v) for k, v in data.get("role_bars", {}).items()},
         verified_sources=frozenset(str(s) for s in data.get("verified_sources", [])),
+        should_fetch_sources=data.get("verification", {}).get("fetch_sources") is True,
+        allowed_source_hosts=frozenset(
+            str(host).lower() for host in data.get("verification", {}).get("allowed_hosts", [])
+        ),
     )
     if "phase_shares" in data:
         config.phase_shares = {k: float(v) for k, v in data["phase_shares"].items()}
@@ -212,6 +253,7 @@ def load(path: str | Path, *, trusted: bool = False) -> Config:
                 capabilities=provider.capabilities,
                 rank=int(spec.get("rank", 100)),
                 model_id=provider.model_id,
+                strength=int(spec.get("strength", 0)),
             )
         )
     return config

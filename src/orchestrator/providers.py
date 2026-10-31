@@ -168,14 +168,15 @@ class CliProvider:
                 )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return _failed(self.name, self.family, self.model_id, str(exc), started)
+        known = [os.environ[name] for name in self.env_passthrough if name in os.environ]
         if proc.returncode != 0:
             return _failed(
                 self.name, self.family, self.model_id,
-                (proc.stderr or "").strip()[:300] or f"exit {proc.returncode}",
+                redact(proc.stderr or "", known).strip()[:300] or f"exit {proc.returncode}",
                 started,
             )
         raw_output = proc.stdout.strip()
-        text = redact(raw_output)[:max_output_tokens * CHARS_PER_TOKEN_ESTIMATE]
+        text = redact(raw_output, known)[:max_output_tokens * CHARS_PER_TOKEN_ESTIMATE]
         if not text:
             return _failed(self.name, self.family, self.model_id, "empty response", started)
         return Result(

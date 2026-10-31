@@ -1,0 +1,2 @@
+[console_scripts]
+quorum-run = orchestrator.cli:main
