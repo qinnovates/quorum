@@ -20,6 +20,11 @@ max_output_tokens = 2000   # per-agent output cap
 # output_per_mtok = 0.0
 
 # Local open-source orchestrator / PM. Never judges.
+# Fetch cited pages and look for quoted text. Contacts only hosts you allow.
+# [verification]
+# fetch_sources = true
+# allowed_hosts = ["arxiv.org"]
+
 [pm]
 provider = "pm"
 
@@ -37,6 +42,14 @@ model = "<gemini-model-id-to-confirm>"
 command = ["gemini", "--skip-trust", "--approval-mode", "plan", "-p", "Follow the instructions in the input."]
 rank = 5
 capabilities = ["web", "json_schema"]
+
+# Panelist via the Codex CLI. Run `codex login` first.
+# [providers.codex]
+# type = "codex_cli"
+# model = "default"
+# command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]
+# rank = 5
+# strength = 5
 
 # Any OpenAI-compatible endpoint (BYOAI). Family is declared by you.
 # [providers.byo]

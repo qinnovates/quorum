@@ -39,6 +39,12 @@ def _clears_bar(item: RoleEvidence, bar: float, today: date, max_age_days: int) 
     return item.is_verified and item.score >= bar and age_days <= max_age_days
 
 
+def _pick(candidates: list[Candidate], prefer_strength: bool) -> Candidate:
+    if prefer_strength:
+        return max(candidates, key=lambda c: (c.strength, c.rank))
+    return min(candidates, key=lambda c: c.rank)
+
+
 def route_role(
     candidates: list[Candidate],
     role: str,
@@ -49,8 +55,12 @@ def route_role(
     *,
     family: str | None = None,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    prefer_strength: bool = False,
 ) -> RouteDecision:
-    """Cheapest candidate that clears the role's bar, else cheapest `unproven`."""
+    """Cheapest candidate that clears the bar, or strongest on high stakes.
+
+    With no evidence, the same preference applies and the choice is `unproven`.
+    """
     if role not in ROLES:
         raise ValueError(f"unknown role {role!r}; use one of {sorted(ROLES)}")
     eligible = [
@@ -67,9 +77,10 @@ def route_role(
                 proven[item.model_id] = item
     cleared = [c for c in eligible if c.model_id in proven]
     if cleared:
-        chosen = min(cleared, key=lambda c: c.rank)
+        chosen = _pick(cleared, prefer_strength)
         item = proven[chosen.model_id]
-        reason = f"{item.metric}={item.score} (source: {item.source}, {item.measured_on}); cheapest above bar {bar}"
+        reason = f"{item.metric}={item.score} (source: {item.source}, {item.measured_on}); above bar {bar}"
         return RouteDecision(chosen.name, role, "proven", reason)
-    chosen = min(eligible, key=lambda c: c.rank)
-    return RouteDecision(chosen.name, role, "unproven", f"no current verified evidence for {role}; cheapest eligible")
+    chosen = _pick(eligible, prefer_strength)
+    label = "strongest" if prefer_strength else "cheapest"
+    return RouteDecision(chosen.name, role, "unproven", f"no current verified evidence for {role}; {label} eligible")

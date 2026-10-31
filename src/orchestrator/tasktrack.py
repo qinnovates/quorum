@@ -9,10 +9,18 @@ import hashlib
 import json
 import os
 import re
+import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .secrets import redact
+
+try:
+    import fcntl
+except ImportError:  # Windows has no fcntl; runs there are single-writer
+    fcntl = None
 
 
 @dataclass
@@ -41,7 +49,7 @@ class TaskTrack:
         return {row["task_id"]: TaskRecord(**row) for row in rows}
 
     def _save(self, tasks: dict[str, TaskRecord]) -> None:
-        temporary = self.path.with_suffix(".tmp")
+        temporary = self.path.with_suffix(f".{os.getpid()}.{secrets.token_hex(4)}.tmp")
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             json.dump([asdict(t) for t in tasks.values()], stream, indent=2)
@@ -50,20 +58,32 @@ class TaskTrack:
     def find(self, topic: str) -> TaskRecord | None:
         return self._load().get(topic_key(topic))
 
+    @contextmanager
+    def _locked(self) -> Iterator[None]:
+        descriptor = os.open(self.path.with_suffix(".lock"), os.O_WRONLY | os.O_CREAT, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            if fcntl is not None:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+
     def claim(self, topic: str, epic: str, run_id: str) -> tuple[TaskRecord, bool]:
         """Return the task and whether it already existed."""
-        tasks = self._load()
-        key = topic_key(topic)
-        existing = key in tasks
-        task = tasks.get(key) or TaskRecord(key, redact(epic), redact(topic), "open")
-        task.run_ids.append(run_id)
-        tasks[key] = task
-        self._save(tasks)
+        with self._locked():
+            tasks = self._load()
+            key = topic_key(topic)
+            existing = key in tasks
+            task = tasks.get(key) or TaskRecord(key, redact(epic), redact(topic), "open")
+            task.run_ids.append(run_id)
+            tasks[key] = task
+            self._save(tasks)
         return task, existing
 
     def complete(self, topic: str, evidence: list[str]) -> None:
-        tasks = self._load()
-        task = tasks[topic_key(topic)]
-        task.status = "done"
-        task.evidence.extend(redact(item) for item in evidence)
-        self._save(tasks)
+        with self._locked():
+            tasks = self._load()
+            task = tasks.get(topic_key(topic))
+            if task is None:
+                return
+            task.status = "done"
+            task.evidence.extend(redact(item) for item in evidence)
+            self._save(tasks)

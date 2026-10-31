@@ -16,7 +16,7 @@ CMD_TIMEOUT_S = 15.0
 _MIN_KNOWN_SECRET_CHARS = 8
 
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("PRIVATE_KEY", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)),
+    ("PRIVATE_KEY", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----.*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|\Z)", re.S)),
     ("ANTHROPIC", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{16,}")),
     ("OPENAI", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}")),
     ("STRIPE", re.compile(r"\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}")),
@@ -26,6 +26,8 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("SLACK", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}")),
     ("GOOGLE", re.compile(r"\bAIza[A-Za-z0-9_-]{30,}")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")),
+    ("XAI", re.compile(r"\bxai-[A-Za-z0-9]{20,}")),
+    ("GROQ", re.compile(r"\bgsk_[A-Za-z0-9]{20,}")),
     ("NPM", re.compile(r"\bnpm_[A-Za-z0-9]{20,}")),
     ("HUGGINGFACE", re.compile(r"\bhf_[A-Za-z0-9]{20,}")),
     ("SLACK_WEBHOOK", re.compile(r"https://hooks\.slack\.com/services/\S+")),
@@ -35,7 +37,7 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "ASSIGNMENT",
         re.compile(
-            r"(?i)\b([a-z0-9_-]*(?:api[_-]?key|token|secret|password|passwd)[a-z0-9_-]*"
+            r"(?i)\b([a-z0-9_-]{0,40}(?:api[_-]?key|token|secret|password|passwd)[a-z0-9_-]{0,40}"
             r"[\"']?\s*[:=]\s*[\"']?)(?!\$)[^\s\"']{8,}"
         ),
     ),

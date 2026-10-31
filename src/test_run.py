@@ -204,7 +204,8 @@ def test_unverified_only_panel_is_unresolved():
 
 def test_fake_looking_source_is_not_cited():
     assert assign_tier("https://x", frozenset()) == "UNVERIFIED"
-    assert assign_tier("https://example.org/a", frozenset()) == "MODERATE"
+    assert assign_tier("https://example.org/a", frozenset()) == "WEAK"
+    assert assign_tier("https://example.org/a", frozenset(), frozenset({"https://example.org/a"})) == "MODERATE"
     assert assign_tier("https://example.org/a", frozenset({"https://example.org/a"})) == "STRONG"
 
 
@@ -425,3 +426,159 @@ def test_only_finished_topics_count_as_reuse(store):
     config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
     assert start_run(config, QUESTION, store).reused_task is False
     assert start_run(config, QUESTION, store).reused_task is False
+
+
+def test_tampered_run_state_is_refused(store):
+    from orchestrator.runstate import StateIntegrityError
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store)
+    path = store.run_dir(state.run_id) / "state.json"
+    stored = json.loads(path.read_text())
+    stored["state"] = stored["state"].replace('"gemini"', '"openai"')
+    path.write_text(json.dumps(stored))
+    with pytest.raises(StateIntegrityError):
+        store.load(state.run_id)
+
+
+def test_seat_prompt_states_the_output_cap(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    assert "characters" in start_run(config, QUESTION, store).seats[0].prompt
+
+
+def test_fully_disputed_winner_is_unresolved():
+    claims = [ScoredClaim(f, "c", "s", "STRONG", "a", f, is_disputed=True) for f in ("claude", "gemini", "openai")]
+    assert build_brief(claims, [], []).verdict == UNRESOLVED
+
+
+def test_only_pivotal_claims_are_challenged(store):
+    from orchestrator.decision import pivotal_claims
+    safe = [ScoredClaim(f, "c", "s", "STRONG", "a", f) for f in ("claude", "gemini", "openai", "meta")]
+    assert pivotal_claims(safe) == []
+    thin = [ScoredClaim("g", "c", "s", "STRONG", "a", "gemini")]
+    assert pivotal_claims(thin) == thin
+
+
+def test_named_options_add_the_status_quo_and_criteria_reach_the_prompt(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store, options=["a", "b"], criteria={"cost": 3.0})
+    assert "keep things as they are" in state.seats[0].prompt and "CRITERIA: cost" in state.seats[0].prompt
+
+
+def test_criteria_fit_is_reported_and_flags_a_mismatch():
+    from orchestrator.decision import criteria_fit
+    answers = [{"option": "a", "criteria_scores": {"cost": 5}}, {"option": "b", "criteria_scores": {"cost": 1, "evil": 9}}]
+    assert criteria_fit(answers, {"cost": 2.0}) == {"a": 5.0, "b": 1.0}
+
+
+def test_pm_merge_keeps_only_similar_known_names():
+    from orchestrator.option_merge import apply_groups
+    names = {"postgres", "postgresql", "mysql"}
+    assert apply_groups([["postgres", "postgresql"]], names) == {"postgresql": "postgres"}
+    assert apply_groups([["postgres", "mysql"]], names) == {}
+    assert apply_groups("bad", names) == {}
+    assert apply_groups([[["nested"], "postgres"]], names) == {}
+    assert apply_groups([["migrate to kubernetes", "migrate off kubernetes"]], {"migrate to kubernetes", "migrate off kubernetes"}) == {}
+    assert apply_groups([["react", "preact"]], {"react", "preact"}) == {}
+    assert apply_groups([["server", "serverless"]], {"server", "serverless"}) == {}
+    assert apply_groups([["password", "passwordless"]], {"password", "passwordless"}) == {}
+
+
+def test_pm_merges_spellings_and_never_sets_the_verdict(store):
+    pm = FakeProvider("pm", "ollama", lambda p: json.dumps({"groups": [["postgres", "postgresql"]]}))
+    g = FakeProvider("g", "gemini", lambda p: json.dumps({"objections": []}) if "challenger" in p else answer("postgres"))
+    o = FakeProvider("o", "openai", lambda p: json.dumps({"objections": []}) if "challenger" in p else answer("postgresql"))
+    config = config_for(pm, g, o)
+    config.pm_provider = "pm"
+    state = start_run(config, QUESTION, store)
+    assert "# Decision: postgres" in finish_run(state, config, store)
+
+
+def test_high_stakes_prefers_the_strongest_model():
+    candidates = [Candidate("cheap", "gemini", frozenset(), 1, "c", 1), Candidate("big", "gemini", frozenset(), 9, "b", 5)]
+    decision = route_role(candidates, "code", frozenset(), [], {}, date(2026, 10, 31), prefer_strength=True)
+    assert decision.provider == "big"
+
+
+def test_regret_charges_deferral_less_than_a_wrong_answer():
+    from orchestrator.evaluation import decision_regret
+    assert decision_regret(["a", UNRESOLVED, "x"], ["a", "b", "c"]) == pytest.approx((0 + 0.25 + 1) / 3)
+
+
+def test_only_one_host_seat_is_issued(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store, host_seats=4)
+    assert sum(s.attestation == "host" for s in state.seats) == 1
+
+
+def test_unchecked_sources_are_disclosed(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")), FakeProvider("o", "openai", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store)
+    assert "citations may be invented" in finish_run(state, config, store)
+
+
+def test_escaped_secret_in_json_is_redacted_after_decoding():
+    escaped = json.dumps({"option": "x", "claims": [{"text": CANARY}]}).replace("ghp_", "\\u0067hp_")
+    assert CANARY not in json.dumps(parse_answer(escaped))
+
+
+def test_rejected_seat_keeps_no_answer(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("outside")))
+    state = start_run(config, QUESTION, store, options=["a"])
+    assert state.seats[0].answer is None
+
+
+def test_multiline_options_are_refused(store):
+    with pytest.raises(RunError, match="single lines"):
+        start_run(config_for(), QUESTION, store, options=["a\nb"])
+
+
+def test_brief_neutralizes_markdown_images():
+    from orchestrator.decision import render_brief
+    claims = [ScoredClaim("a", "see ![x](https://evil.example/q)", "s", "STRONG", "ok", "gemini")]
+    assert "![" not in render_brief(build_brief(claims, [], []), {})
+
+
+def test_redaction_stays_fast_on_hostile_input():
+    import time
+    from orchestrator.secrets import redact
+    started = time.monotonic()
+    redact("a-" * 100_000)
+    assert time.monotonic() - started < 2
+
+
+def test_oversized_host_answer_is_refused_before_redaction(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")))
+    state = start_run(config, QUESTION, store, host_seats=1)
+    with pytest.raises(RunError, match="cap"):
+        record_host_answer(state, config, store, "S2", state.seats[1].prompt_hash, "a-" * 1_000_000)
+
+
+def test_deeply_nested_answer_fails_cleanly():
+    with pytest.raises(AnswerError):
+        parse_answer("{" + '"a":[' * 200_000)
+
+
+def test_brief_escapes_raw_html():
+    from orchestrator.decision import render_brief
+    claims = [ScoredClaim("a", "<img src=https://evil.example/x>", "s", "STRONG", "ok", "gemini")]
+    assert "<img" not in render_brief(build_brief(claims, [], []), {})
+
+
+def test_passthrough_values_are_redacted_from_cli_output(monkeypatch):
+    import subprocess
+    from orchestrator.providers import CliProvider
+    monkeypatch.setenv("QUORUM_PASS", "passthrough-value-123")
+    runner = lambda argv, **k: subprocess.CompletedProcess(argv, 0, stdout="leak passthrough-value-123", stderr="")
+    res = CliProvider("g", "gemini", ["gemini"], "m", env_passthrough=("QUORUM_PASS",), runner=runner).complete("q", max_output_tokens=50)
+    assert "passthrough-value-123" not in res.text
+
+
+def test_tasktrack_complete_on_a_missing_task_is_harmless(tmp_path):
+    TaskTrack(tmp_path / "t.json").complete("never claimed", ["x"])
+
+
+def test_empty_allowlist_still_warns(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("x")), FakeProvider("o", "openai", lambda p: answer("x")))
+    config.should_fetch_sources = True
+    state = start_run(config, QUESTION, store)
+    assert "citations may be invented" in finish_run(state, config, store)

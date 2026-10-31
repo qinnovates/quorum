@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from statistics import median
 
 from .secrets import redact
 
@@ -57,17 +58,31 @@ class Brief:
     single_family: list[str] = field(default_factory=list)
     would_change: list[str] = field(default_factory=list)
     unknowns: list[str] = field(default_factory=list)
+    criteria_rows: list[str] = field(default_factory=list)
+
+
+def _redact_tree(value: object) -> object:
+    """Redact after decoding, because JSON escapes can hide a secret from regexes."""
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_tree(item) for item in value]
+    if isinstance(value, dict):
+        return {redact(str(key)): _redact_tree(item) for key, item in value.items()}
+    return value
 
 
 def parse_answer(text: str) -> dict:
     """Validate a panelist's JSON. Prose and refusals do not count as answers."""
-    match = re.search(r"\{.*\}", text, re.S)
-    if match is None:
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end < start:
         raise AnswerError("no JSON object in answer")
     try:
-        data = json.loads(match.group(0))
+        data = _redact_tree(json.loads(text[start:end + 1]))
     except json.JSONDecodeError as exc:
         raise AnswerError(f"invalid JSON at position {exc.pos}") from None
+    except RecursionError:
+        raise AnswerError("answer is nested too deeply") from None
     option = data.get("option")
     claims = data.get("claims")
     if not isinstance(option, str) or not option.strip() or not isinstance(claims, list):
@@ -82,11 +97,20 @@ def parse_answer(text: str) -> dict:
     return data
 
 
-def assign_tier(source: str, verified_sources: frozenset[str]) -> str:
-    """Python assigns tiers. A panelist's own label is ignored."""
+def assign_tier(
+    source: str, verified_sources: frozenset[str], reachable_sources: frozenset[str] = frozenset()
+) -> str:
+    """Python assigns tiers. A panelist's own label is ignored.
+
+    STRONG: you verified it, or its quote was found on the page.
+    MODERATE: the page exists, but the quote was not found.
+    WEAK: well-formed but unchecked, so it may be invented.
+    """
     if source in verified_sources:
         return "STRONG"
-    return "MODERATE" if _SOURCE.match(source) else "UNVERIFIED"
+    if source in reachable_sources:
+        return "MODERATE"
+    return "WEAK" if _SOURCE.match(source) else "UNVERIFIED"
 
 
 def normalize_option(option: str) -> str:
@@ -129,7 +153,10 @@ def build_brief(
     top = scores[0]
     runner = scores[1] if len(scores) > 1 else None
     is_close = runner is not None and top.score - runner.score < MIN_SEPARATION
-    verdict = UNRESOLVED if is_close or top.score < MIN_VERDICT_SCORE else top.option
+    top_claims = [c for c in claims if c.option == top.option]
+    has_live_support = any(not c.is_disputed and c.tier != "UNVERIFIED" for c in top_claims)
+    is_weak = top.score < MIN_VERDICT_SCORE or not has_live_support
+    verdict = UNRESOLVED if is_close or is_weak else top.option
     return Brief(
         verdict=verdict,
         runner_up=runner.option if runner else None,
@@ -142,9 +169,37 @@ def build_brief(
     )
 
 
+def pivotal_claims(claims: list[ScoredClaim]) -> list[ScoredClaim]:
+    """Claims that would change the verdict if disputed. Only these earn review."""
+    verdict = build_brief(claims, [], []).verdict
+    pivotal = []
+    for claim in claims:
+        disputed = replace(claim, is_disputed=True)
+        trial = [disputed if c is claim else c for c in claims]
+        if build_brief(trial, [], []).verdict != verdict:
+            pivotal.append(claim)
+    return pivotal
+
+
+def criteria_fit(answers: list[dict], criteria: dict[str, float]) -> dict[str, float]:
+    """Weighted median panel rating per option, 0 to 5, for the brief."""
+    ratings: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for answer in answers:
+        scores = answer.get("criteria_scores")
+        for name in criteria:
+            value = scores.get(name) if isinstance(scores, dict) else None
+            if isinstance(value, (int, float)) and 0 <= value <= 5:
+                ratings[normalize_option(answer["option"])][name].append(float(value))
+    total = sum(criteria.values())
+    return {
+        option: round(sum(median(by_name.get(n, [0.0])) * w for n, w in criteria.items()) / total, 2)
+        for option, by_name in ratings.items()
+    } if total else {}
+
+
 def _one_line(text: str) -> str:
-    """Panel text cannot add headings or lines to the brief."""
-    return re.sub(r"\s+", " ", text).strip()
+    """Panel text cannot add headings, lines or auto-loading images to the brief."""
+    return re.sub(r"\s+", " ", text).replace("![", "[image: ").replace("<", "&lt;").strip()
 
 
 def _bullets(title: str, rows: list[str]) -> list[str]:
@@ -163,6 +218,7 @@ def render_brief(brief: Brief, usage: dict) -> str:
         *_bullets("Raised by only one model family", brief.single_family),
         *_bullets("What would change this", brief.would_change),
         *_bullets("Unknown", brief.unknowns),
+        *_bullets("Fit to your criteria (panel ratings, 0 to 5)", brief.criteria_rows),
         *_bullets("How options were weighed", score_rows),
         *_bullets("Tokens and cost", usage_rows),
     ]

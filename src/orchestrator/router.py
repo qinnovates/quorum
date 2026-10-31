@@ -21,6 +21,7 @@ class Candidate:
     capabilities: frozenset[str]
     rank: int
     model_id: str = ""
+    strength: int = 0
 
 
 def choose(
@@ -69,8 +70,8 @@ def escalation_reasons(sig: EscalationSignals) -> list[str]:
 
 
 def escalate(candidates: list[Candidate], needs: frozenset[str]) -> Candidate:
-    """Strongest eligible candidate: the most expensive declared rank."""
+    """Strongest eligible candidate, by declared strength, then rank."""
     eligible = [c for c in candidates if needs <= c.capabilities]
     if not eligible:
         raise NoRoute(f"no provider has {sorted(needs)} for escalation")
-    return max(eligible, key=lambda c: c.rank)
+    return max(eligible, key=lambda c: (c.strength, c.rank))

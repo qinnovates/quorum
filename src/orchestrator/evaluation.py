@@ -16,6 +16,19 @@ from .runstate import RunState, RunStore
 from .usage import total_tokens
 
 
+DEFERRAL_COST = 0.25
+
+
+def decision_regret(verdicts: Sequence[str], expected: Sequence[str]) -> float:
+    """Mean regret: 0 for right, 1 for wrong, a fixed cost for UNRESOLVED."""
+    def regret(verdict: str, answer: str) -> float:
+        if verdict == answer:
+            return 0.0
+        return DEFERRAL_COST if verdict == UNRESOLVED else 1.0
+
+    return sum(map(regret, verdicts, expected)) / len(verdicts)
+
+
 def recall(expected: set[str], found: set[str]) -> float:
     return 1.0 if not expected else len(expected & found) / len(expected)
 
@@ -70,9 +83,14 @@ def run_arm(config: Config, cases: list[EvalCase], store: RunStore) -> dict[str,
     """Score one configuration. Cost is tokens, so arms compare without prices."""
     if not cases:
         raise ValueError("eval needs at least one case")
-    correct, tokens = 0, 0
+    verdicts, tokens = [], 0
     for case in cases:
         verdict, used = _verdict_of(config, case, store)
-        correct += verdict == _expected_verdict(case)
+        verdicts.append(verdict)
         tokens += used
-    return {"recall": correct / len(cases), "cost": float(tokens)}
+    expected = [_expected_verdict(case) for case in cases]
+    correct = sum(map(str.__eq__, verdicts, expected))
+    return {
+        "recall": correct / len(cases), "cost": float(tokens),
+        "regret": decision_regret(verdicts, expected),
+    }

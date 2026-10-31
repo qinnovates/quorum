@@ -227,10 +227,13 @@ class TestLaterRedaction:
         "npm_" + "a1" * 12,
         "hf_" + "a1" * 12,
         "sk_test_" + "a1" * 12,
+        "xai-" + "a1" * 12,
+        "-----BEGIN PGP PRIVATE KEY BLOCK-----\nabc\n-----END PGP PRIVATE KEY BLOCK-----",
+        "gsk_" + "a1" * 12,
         "https://hooks.slack.com/services/" + "T000/B000/abcd",
     ])
     def test_removed(self, secret):
-        assert secret.split()[-1].split("password=")[-1] not in redact(secret)
+        assert "abc\n" not in redact(secret) and secret.split()[-1].split("password=")[-1] not in redact(secret)
 
     def test_shell_variable_reference_is_not_a_secret(self):
         assert redact("token=$GITHUB_TOKEN") == "token=$GITHUB_TOKEN"
@@ -252,7 +255,7 @@ def test_bad_usage_is_unknown_not_a_crash(usage):
     assert res.ok and not res.usage_known
 
 
-@pytest.mark.parametrize("command", ["/usr/bin/env", "export -p", "gh auth status --show-token", "declare -x", "compgen -e"])
+@pytest.mark.parametrize("command", ["/usr/bin/env", "export -p", "gh auth status --show-token", "gh auth status -t", "declare -x", "compgen -e", "sh -c env", "export", "set", "env -0", "env -u PATH", "cd /tmp\nenv", "true\nprintenv"])
 def test_hook_blocks_more_dumps(command):
     assert run_hook(command) == 2
 

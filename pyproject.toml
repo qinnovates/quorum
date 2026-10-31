@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==75.8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "quorum-orchestrator"
-version = "7.5.0"
+version = "7.6.0"
 description = "Model-agnostic orchestration for Quorum decision panels"
 requires-python = ">=3.11"
 dependencies = []

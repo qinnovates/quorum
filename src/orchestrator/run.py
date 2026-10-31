@@ -9,6 +9,7 @@ Python-called, and the family floor needs at least one of them.
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets as stdlib_secrets
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
@@ -20,13 +21,16 @@ from .evidence import route_role
 from .intent import IntentResult, assess_intent
 from .limits import STAKES_PROFILES, PhaseBudgets, SpawnRefused
 from .prompts import build_seat_prompt
-from .providers import Result, estimate_tokens
+from .providers import CHARS_PER_TOKEN_ESTIMATE, Result, estimate_tokens
 from .runstate import RunState, RunStore, Seat
 from .secrets import redact
 from .tasktrack import TaskTrack
 from .usage import charge_usage
 
 HOST_FAMILY = "claude"
+STATUS_QUO_OPTION = "keep things as they are"
+MAX_HOST_SEATS = 1
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class RunError(RuntimeError):
@@ -44,17 +48,17 @@ def _seat(seat_id, role, provider, family, model_id, attestation, prompt, cap, r
     )
 
 
-def _external_seats(config: Config, role: str, prompt: str, cap: int, today: date) -> list[Seat]:
+def _external_seats(config: Config, intent: IntentResult, prompt: str, cap: int, today: date) -> list[Seat]:
     candidates = [c for c in config.candidates if c.name != config.pm_provider]
     seats = []
     for family in sorted({c.family for c in candidates}):
         decision = route_role(
-            candidates, role, frozenset(), config.evidence, config.role_bars, today,
-            family=family,
+            candidates, intent.role, frozenset(), config.evidence, config.role_bars, today,
+            family=family, prefer_strength=intent.stakes == "high",
         )
         provider = config.providers[decision.provider]
         seats.append(_seat(
-            f"S{len(seats) + 1}", role, decision.provider, family, provider.model_id, "python",
+            f"S{len(seats) + 1}", intent.role, decision.provider, family, provider.model_id, "python",
             prompt, cap, (decision.status, decision.reason),
         ))
     return seats
@@ -64,17 +68,23 @@ def start_run(
     config: Config, question: str, store: RunStore, *,
     host_seats: int = 0, epic: str = "general", today: date | None = None,
     options: list[str] | None = None, ratify: bool = False,
+    criteria: dict[str, float] | None = None,
 ) -> RunState | IntentResult:
     """Run intent, set budgets and assign seats. Ask first when the question is vague."""
     intent = assess_intent(question)
     if intent.action == "ask":
         return intent
+    if any(CONTROL_CHARS.search(item) for item in [*(options or []), *(criteria or {})]):
+        raise RunError("options and criteria must be single lines")
     budgets = PhaseBudgets.from_stakes(config.limits.token_budget, intent.stakes, config.phase_shares)
     panel_size = min(STAKES_PROFILES[intent.stakes]["panel_size"], config.limits.max_agents)
-    prompt = build_seat_prompt(question, intent.role, list(intent.assumptions), options or [])
+    choices = [*options, STATUS_QUO_OPTION] if options else []
     cap = min(config.limits.max_output_tokens, budgets.remaining("independent") // max(panel_size, 1) // 2)
-    seats = _external_seats(config, intent.role, prompt, cap, today or date.today())
-    open_host_seats = min(host_seats, max(panel_size - len(seats), 0))
+    prompt = build_seat_prompt(
+        question, intent.role, list(intent.assumptions), choices, cap * CHARS_PER_TOKEN_ESTIMATE, criteria,
+    )
+    seats = _external_seats(config, intent, prompt, cap, today or date.today())
+    open_host_seats = min(host_seats, MAX_HOST_SEATS, max(panel_size - len(seats), 0))
     for _ in range(open_host_seats):
         seats.append(_seat(
             f"S{len(seats) + 1}", intent.role, "host", HOST_FAMILY, "host-model", "host", prompt, cap,
@@ -84,7 +94,8 @@ def start_run(
     state = RunState(run_id, redact(question), intent.stakes, "OPEN", list(intent.assumptions), budgets.allowance)
     state.seats = seats
     state.ratify = ratify
-    state.options = [normalize_option(option) for option in options or []]
+    state.options = [redact(normalize_option(option)) for option in choices]
+    state.criteria = {redact(name): weight for name, weight in (criteria or {}).items()}
     tracker = TaskTrack(store.root / "tasks.json")
     prior = tracker.find(state.question)
     state.reused_task = prior is not None and prior.status == "done"
@@ -94,6 +105,7 @@ def start_run(
     for seat in seats:
         log.emit("route_decided", seat=seat.seat_id, provider=seat.provider, status=seat.route_status, reason=seat.route_reason)
         log.emit("seat_issued", seat=seat.seat_id, attestation=seat.attestation, prompt_hash=seat.prompt_hash)
+    store.save(state)
     _call_python_seats(config, state, log)
     store.save(state)
     return state
@@ -108,9 +120,10 @@ def _settle(state: RunState, config: Config, seat: Seat, result: Result, log: Ev
     try:
         if not result.ok:
             raise AnswerError(result.error or "provider failed")
-        seat.answer = parse_answer(redact(result.text))
-        if state.options and normalize_option(seat.answer["option"]) not in state.options:
+        answer = parse_answer(redact(result.text))
+        if state.options and normalize_option(answer["option"]) not in state.options:
             raise AnswerError("answer is not one of the listed options")
+        seat.answer = answer
         seat.status = "answered"
     except AnswerError as exc:
         seat.status, seat.error = "failed", redact(str(exc))
@@ -165,9 +178,9 @@ def record_host_answer(
         raise RunError(f"seat {seat_id} already recorded; answers cannot be replaced")
     if prompt_hash != seat.prompt_hash:
         raise RunError(f"prompt hash mismatch on {seat_id}; use the prompt the run issued")
-    clean = redact(text)
-    if estimate_tokens(clean) > seat.max_output_tokens:
+    if estimate_tokens(text) > seat.max_output_tokens:
         raise RunError(f"answer for {seat_id} exceeds its {seat.max_output_tokens} token cap")
+    clean = redact(text)
     result = Result(
         clean, seat.family, seat.model_id, estimate_tokens(seat.prompt),
         estimate_tokens(clean), usage_known=False,

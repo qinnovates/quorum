@@ -2,6 +2,28 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.6.0 — Orchestrator protocol
+
+- **`references/orchestrator.md` added.** It tells the supervisor how to find the user's models, match work to them, delegate and dedupe research, and spend tokens. Why: Quorum should work with any setup and spend less without weakening independence, Challengers or validation.
+- **Loaded on demand.** Why: a long prompt in `SKILL.md` would cost tokens on every run.
+- **Allowed tools added:** `command -v` and `ollama list`, for discovery. Why: a command is cheaper than a model call.
+- **One exit route.** Removed direct `gemini` and `codex` grants and prompt-mode external calls. Why: a host model reading untrusted panel text should not hold tools that can run commands. Multi-model runs now need `quorum-run`.
+- **Consent in code.** `start`, `eval` and `doctor --live` need `--allow-provider` for each remote provider, and `start` is not pre-approved. Why: consent written only as prose can be skipped.
+- **Removed unscoped `Write` pre-approval.** Why: the host could otherwise edit config or state unprompted.
+- **`quorum-run doctor`, signed run state, confined handoff files, approval-bypass flags refused, model flag passed to CLIs.** Why: fail early, detect edits, and keep the tool from reading or deleting arbitrary files.
+- **Guard hardened.** It works on older Python, blocks when it crashes, and covers more dump commands. Why: a guard that fails open guards nothing.
+- **Install steps corrected.** Why: the previous command did not install the skill.
+- **API safety checklist and unbiased panel guide added to the README.**
+- **Security review fixes.** Source checks contact only hosts you allow, and quote matches bind to their URL. Option merges need true spelling variants and are disclosed. Handoff files refuse symlinks and hard links. CLI arguments use an allowlist. Redaction runs after JSON decoding and resists slow-regex input. Why: an independent adversarial review reproduced each of these.
+- **One-command installer, `quorum-run setup`, friendlier `doctor` and a beginner guide.** Why: someone new to Claude Code should reach a first answer without editing config files.
+- **Evidence tiers changed.** Unchecked citations now score WEAK. With `fetch_sources`, a found quote scores STRONG and a reachable page MODERATE. Why: URL shape is not evidence.
+- **`--criterion`, status-quo option and criteria fit.** Why: the user's priorities should shape the decision.
+- **Flip-only single challenge round, one host seat, no PM summary.** Why: repeated prompts and duplicate seats added cost without new information.
+- **The PM merges option spellings under a similarity check.** Why: keep a useful, checkable job for a small model.
+- **Strength routing and decision regret.** Why: cost is not capability, and matching answers is not decision quality.
+- **`SKILL.md` split into a router and on-demand references.** Why: most instructions apply to only some runs.
+- **Known limits:** the protocol is guidance to the model, signing is tamper-evidence only, citations are checked for format only, and savings are not yet measured.
+
 ## v7.5.0 — Judge, routing and control center
 
 - **Final judge.** Runs on high stakes or a trigger with authors hidden, and prefers a model outside the panel. It can only withhold a verdict, using a source you verified. If a required review cannot run, no verdict is given. Why: one model should not override weighed evidence, and a skipped check should not pass silently.
