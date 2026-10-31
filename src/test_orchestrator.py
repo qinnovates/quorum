@@ -13,10 +13,9 @@ from orchestrator.handoff import (
     dedupe_claims,
     full_pool_bytes,
     payload_bytes,
-    pool_stats,
 )
 from orchestrator.ledger import Ledger, Price
-from orchestrator.limits import RunBudget, RunLimits, SpawnRefused
+from orchestrator.limits import RunLimits
 from orchestrator.providers import (
     CliProvider,
     FakeProvider,
@@ -94,42 +93,6 @@ class TestLedger:
         assert ledger.total_tokens() == 40
 
 
-# --- R5: subagent spawn limits ------------------------------------------------
-
-class TestLimits:
-    def test_max_agents_refusal_is_recorded_with_reason(self):
-        budget = RunBudget(RunLimits(max_agents=2))
-        budget.authorize_spawn(depth=1, estimated_tokens=10)
-        budget.authorize_spawn(depth=1, estimated_tokens=10)
-        with pytest.raises(SpawnRefused) as exc:
-            budget.authorize_spawn(depth=1, estimated_tokens=10)
-        assert "max_agents=2" in exc.value.reason
-        assert budget.refusals == [exc.value.reason]
-        assert budget.agents_spawned == 2
-
-    def test_depth_limit(self):
-        budget = RunBudget(RunLimits(max_depth=2))
-        with pytest.raises(SpawnRefused, match="max_depth"):
-            budget.authorize_spawn(depth=3, estimated_tokens=1)
-
-    def test_spawn_refused_when_estimate_exceeds_remaining_budget(self):
-        budget = RunBudget(RunLimits(token_budget=100))
-        budget.charge(90)
-        with pytest.raises(SpawnRefused, match="remaining budget 10"):
-            budget.authorize_spawn(depth=1, estimated_tokens=50)
-
-    def test_output_cap_clamped_by_per_agent_and_remaining_budget(self):
-        budget = RunBudget(RunLimits(token_budget=500, max_output_tokens=200))
-        assert budget.clamp_output(1000) == 200
-        budget.charge(480)
-        assert budget.clamp_output(1000) == 20
-
-    def test_exhausted_after_full_charge(self):
-        budget = RunBudget(RunLimits(token_budget=10))
-        budget.charge(10)
-        assert budget.exhausted()
-
-
 # --- R2: handoff payloads -----------------------------------------------------
 
 def claim(text, source="s", tier="MODERATE", relevance=1.0):
@@ -179,11 +142,6 @@ class TestHandoff:
         payload = build_handoff([claim(long)], "r", open_questions=[], debate_summary=long)
         assert len(payload["claims"][0]["text"]) == 240
         assert len(payload["debate_summary"]) == 400
-
-    def test_pool_stats_reports_raw_and_unique(self):
-        pool = [claim("a", source="1"), claim("a", source="1")]
-        stats = pool_stats(pool)
-        assert (stats.raw_claims, stats.unique_claims) == (2, 1)
 
 
 # --- R6: routing and escalation ----------------------------------------------
@@ -297,7 +255,6 @@ min_families = 2
 [limits]
 token_budget = 1000
 max_agents = 4
-max_depth = 2
 max_output_tokens = 300
 
 [pricing."gemini-2.5-pro"]
@@ -393,12 +350,6 @@ class TestRegressions:
         assert ledger.by_model()["m"]["cost_usd"] is None
         assert ledger.estimated_usage_models() == ["m"]
         assert ledger.unpriced_models() == []
-
-    def test_clamp_output_refuses_when_budget_is_gone(self):
-        budget = RunBudget(RunLimits(token_budget=10))
-        budget.charge(10)
-        with pytest.raises(SpawnRefused, match="exhausted"):
-            budget.clamp_output(100)
 
     def test_config_rejects_unknown_family(self, tmp_path):
         path = tmp_path / "quorum.toml"

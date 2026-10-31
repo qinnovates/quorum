@@ -1,7 +1,7 @@
 """Run limits and subagent spawn caps.
 
-Limits are enforced in code. A refused spawn is recorded with its reason
-and never silently skipped, so a stopped run says why it stopped.
+Limits are enforced in code. A refused call is reported with its reason, so a
+stopped run says why it stopped.
 """
 
 from __future__ import annotations
@@ -19,51 +19,7 @@ class SpawnRefused(RuntimeError):
 class RunLimits:
     token_budget: int = 200_000
     max_agents: int = 8
-    max_depth: int = 2
     max_output_tokens: int = 2_000
-
-
-@dataclass
-class RunBudget:
-    limits: RunLimits
-    spent_tokens: int = 0
-    agents_spawned: int = 0
-    refusals: list[str] = field(default_factory=list)
-
-    def remaining_tokens(self) -> int:
-        return max(0, self.limits.token_budget - self.spent_tokens)
-
-    def clamp_output(self, requested: int) -> int:
-        """Per-agent output cap, and never more than the budget has left."""
-        remaining = self.remaining_tokens()
-        if remaining == 0:
-            reason = "token budget exhausted"
-            self.refusals.append(reason)
-            raise SpawnRefused(reason)
-        return max(1, min(requested, self.limits.max_output_tokens, remaining))
-
-    def authorize_spawn(self, depth: int, estimated_tokens: int) -> None:
-        """Raise SpawnRefused (and record why) if the spawn breaks a limit."""
-        reason = None
-        if self.agents_spawned >= self.limits.max_agents:
-            reason = f"max_agents={self.limits.max_agents} reached"
-        elif depth > self.limits.max_depth:
-            reason = f"depth {depth} exceeds max_depth={self.limits.max_depth}"
-        elif estimated_tokens > self.remaining_tokens():
-            reason = (
-                f"estimated {estimated_tokens} tokens exceeds remaining "
-                f"budget {self.remaining_tokens()}"
-            )
-        if reason is not None:
-            self.refusals.append(reason)
-            raise SpawnRefused(reason)
-        self.agents_spawned += 1
-
-    def charge(self, tokens: int) -> None:
-        self.spent_tokens += max(0, tokens)
-
-    def exhausted(self) -> bool:
-        return self.remaining_tokens() == 0
 
 
 # Starting points, not measured results. Override them in config.

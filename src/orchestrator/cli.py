@@ -21,6 +21,7 @@ from .intent import IntentResult
 from .conclude import finish_run, issue_host_challenge, live_claims, record_host_challenge
 from .dashboard import REFRESH_SECONDS, write_dashboard
 from .evaluation import control_passes, load_cases, run_arm
+from .provenance import verify_records
 from .run import RunError, log_for, record_host_answer, start_run
 from .secrets import redact
 from .setup_config import detect_tools, write_user_config
@@ -195,6 +196,12 @@ def _doctor(args, config, store) -> dict:
     return {"text": "\n".join(lines)}
 
 
+def _verify(args, config, store) -> dict:
+    state = store.load(args.run)
+    check = verify_records(store.run_dir(args.run) / "record.jsonl", state.record_head)
+    return {"text": f"{'OK ' if check.is_intact else 'FAIL'} run record: {check.detail}"}
+
+
 def _eval(args, config, store) -> dict:
     _require_consent(config, args.allow_provider)
     report = run_arm(config, load_cases(Path(args.cases)), store)
@@ -249,6 +256,9 @@ def _parser() -> argparse.ArgumentParser:
     evaluate.set_defaults(handler=_eval)
     setup = commands.add_parser("setup")
     setup.add_argument("--force", action="store_true")
+    verify = commands.add_parser("verify")
+    verify.add_argument("--run", required=True)
+    verify.set_defaults(handler=_verify)
     doctor = commands.add_parser("doctor")
     doctor.add_argument("--live", action="store_true")
     doctor.add_argument("--allow-provider", action="append", default=[])

@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.6.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.7.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -27,6 +27,17 @@ The result: answers that have been **questioned, attacked, defended, and validat
 Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
+
+## What's New in 7.7.0: Smaller Handoffs and a Checkable Run Record
+
+| Feature | What it does | Why |
+|---|---|---|
+| ID-based handoffs | Reviewers get compact claims with stable IDs and each URL once, and they object by ID | Agents should not pay to resend what is already known |
+| Measured savings | Each brief reports estimated handoff tokens against resending full answers | Savings should be measured, not claimed |
+| Hash-linked run record | Stores hashes and IDs for each step, with no question or answer text. Run `quorum-run verify --run <id>` to check it | You can detect later edits to what a run recorded |
+| Local model reuse | Keeps Ollama models loaded between calls | Reloading a model wastes time |
+
+**Limits:** a hash shows a record was not changed. It does not show that a claim is true, or that a model reported honestly. The savings figure is an estimate against resending answers, not a token bill. Quorum does not transfer model internals between agents, because that cannot be redacted or audited with the tools here.
 
 ## What's New in 7.6.0: Orchestrator Protocol
 

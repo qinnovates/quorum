@@ -6,7 +6,9 @@ from dataclasses import asdict
 
 from quorum_scorer import Claim
 
-from .challenge import challenge_prompt, new_disputes, run_challenges, with_disputes
+from .challenge import (
+    challenge_payload, challenge_prompt, new_disputes, run_challenges, with_disputes,
+)
 from .config import Config
 from .decision import (
     UNRESOLVED, Brief, ScoredClaim, assign_tier, build_brief, criteria_fit, normalize_option, render_brief,
@@ -17,6 +19,7 @@ from .events import EventLog
 from .handoff import claim_id
 from .judge import escalation_signals, run_judge
 from .option_merge import canonical_names
+from .provenance import content_hash
 from .providers import Result, estimate_tokens
 from .router import escalation_reasons
 from .run import HOST_FAMILY, RunError, log_for
@@ -24,7 +27,7 @@ from .runstate import RunState, RunStore
 from .secrets import redact
 from .source_check import SourceCheck, check_sources
 from .tasktrack import TaskTrack
-from .usage import charge_usage, usage_report
+from .usage import charge_usage, record_handoff, usage_report
 
 
 def live_claims(state: RunState, config: Config) -> list[ScoredClaim]:
@@ -64,6 +67,7 @@ def record_host_challenge(state: RunState, config: Config, store: RunStore, text
         estimate_tokens(clean), usage_known=False,
     )
     charge_usage(state, config, "challenge", "challenger", result)
+    record_handoff(state, challenge_payload(claims))
     found = new_disputes(result, {c.claim_id for c in claims}) - set(state.host_disputes)
     state.host_disputes.extend(sorted(found))
     state.host_challenges_recorded += 1
@@ -131,62 +135,89 @@ def _apply_judge(state: RunState, config: Config, claims: list[ScoredClaim], bri
         brief.verdict = UNRESOLVED
 
 
-def finish_run(state: RunState, config: Config, store: RunStore) -> str:
-    """Enforce the gate, challenge the evidence, and render the decision brief."""
-    if state.status != "OPEN":
-        raise RunError(f"run already finished with status {state.status}")
-    log = log_for(store, state.run_id)
+def _stop_if_cancelled(state: RunState, store: RunStore, log: EventLog) -> None:
     if store.is_cancel_requested(state.run_id):
         state.status = "CANCELLED"
+        log.emit("run_finished", status=state.status)
         store.save(state)
         raise RunError("run was stopped; no verdict was given")
-    try:
-        _enforce_gate(state, config, log)
-    finally:
-        store.save(state)
+
+
+def _gather_claims(state: RunState, config: Config, store: RunStore) -> tuple[list[ScoredClaim], dict[str, str]]:
     checked = (
         check_sources(_source_pairs(state), config.allowed_source_hosts)
         if config.should_fetch_sources else SourceCheck()
     )
     names = canonical_names(config, state)
-    before = _collect_claims(state, config.verified_sources, checked, names)
-    first_verdict = build_brief(before, [], []).verdict
-    is_cancelled = lambda: store.is_cancel_requested(state.run_id)
-    claims = run_challenges(config, state, before, log, is_cancelled)
-    changes = [
-        redact(str(s.answer["would_change"])) for s in state.seats
-        if s.answer and s.answer.get("would_change")
-    ]
+    claims = _collect_claims(state, config.verified_sources, checked, names)
+    for claim in claims:
+        store.add_record(
+            state, "claim", claim_id=claim.claim_id, option=claim.option, tier=claim.tier,
+            family=claim.family, source_hash=content_hash(claim.source),
+        )
+    for old, new in names.items():
+        store.add_record(state, "options_merged", from_hash=content_hash(old), to_hash=content_hash(new))
+    return claims, names
+
+
+def _run_notes(state: RunState, config: Config, names: dict[str, str]) -> list[str]:
     host_seats = sum(s.attestation == "host" for s in state.seats)
-    unknowns = [*state.assumptions]
+    notes = [*state.assumptions]
     if host_seats:
-        unknowns.append(f"{host_seats} seat(s) were reported by the host and not observed by Quorum.")
-    unknowns += [f"{s.seat_id}: {s.route_reason}" for s in state.seats if s.route_status != "proven"][:3]
-    claims = with_disputes(claims, set(state.host_disputes))
-    state.claims = [asdict(c) for c in claims]
+        notes.append(f"{host_seats} seat(s) were reported by the host and not observed by Quorum.")
+    notes += [f"{s.seat_id}: {s.route_reason}" for s in state.seats if s.route_status != "proven"][:3]
     if state.reused_task:
-        unknowns.append("This exact topic was researched in an earlier run; check that result first.")
+        notes.append("This exact topic was researched in an earlier run; check that result first.")
     if host_seats and not state.host_challenges_recorded:
-        unknowns.append("Host panelists did not take part in the challenge round.")
-    unknowns += [f"Treated {old!r} and {new!r} as one option." for old, new in names.items()]
+        notes.append("Host panelists did not take part in the challenge round.")
+    notes += [f"Treated {old!r} and {new!r} as one option." for old, new in names.items()]
     if not (config.should_fetch_sources and config.allowed_source_hosts):
-        unknowns.append("Cited sources were not checked, so citations may be invented.")
-    brief = build_brief(claims, changes, unknowns)
+        notes.append("Cited sources were not checked, so citations may be invented.")
+    return notes
+
+
+def _add_criteria(brief: Brief, state: RunState) -> None:
     fit = criteria_fit([s.answer for s in state.seats if s.answer], state.criteria)
     brief.criteria_rows = [f"{option}: {score}" for option, score in sorted(fit.items(), key=lambda i: -i[1])]
     if fit and brief.verdict != UNRESOLVED and max(fit, key=fit.get) != brief.verdict:
         brief.unknowns.append("The evidence favours one option, but your criteria favour another.")
+
+
+def _record_disputes(state: RunState, store: RunStore, claims: list[ScoredClaim]) -> None:
+    for claim in claims:
+        if claim.is_disputed:
+            store.add_record(state, "claim_disputed", claim_id=claim.claim_id)
+
+
+def finish_run(state: RunState, config: Config, store: RunStore) -> str:
+    """Enforce the gate, challenge the evidence, and render the decision brief."""
+    if state.status != "OPEN":
+        raise RunError(f"run already finished with status {state.status}")
+    log = log_for(store, state.run_id)
+    _stop_if_cancelled(state, store, log)
+    try:
+        _enforce_gate(state, config, log)
+    finally:
+        store.save(state)
+    before, names = _gather_claims(state, config, store)
+    first_verdict = build_brief(before, [], []).verdict
+    is_cancelled = lambda: store.is_cancel_requested(state.run_id)
+    claims = run_challenges(config, state, before, log, is_cancelled)
+    claims = with_disputes(claims, set(state.host_disputes))
+    state.claims = [asdict(c) for c in claims]
+    _record_disputes(state, store, claims)
+    changes = [redact(str(s.answer["would_change"])) for s in state.seats if s.answer and s.answer.get("would_change")]
+    brief = build_brief(claims, changes, _run_notes(state, config, names))
+    _add_criteria(brief, state)
     if brief.verdict != first_verdict:
         brief.verdict = UNRESOLVED
         brief.unknowns.append("Unverified objections changed the outcome, so no verdict is given.")
-    if is_cancelled():
-        state.status = "CANCELLED"
-        log.emit("run_finished", status=state.status)
-        store.save(state)
-        raise RunError("run was stopped; no verdict was given")
+    _stop_if_cancelled(state, store, log)
     _apply_judge(state, config, claims, brief)
-    state.brief = render_brief(brief, usage_report(state))
     state.status = UNRESOLVED if brief.verdict == UNRESOLVED else "DONE"
+    store.add_record(state, "verdict", verdict_hash=content_hash(brief.verdict), status=state.status, judge=state.judge)
+    report = {**usage_report(state), "run record": f"{state.record_head[:16]} (check with: quorum-run verify --run {state.run_id})"}
+    state.brief = render_brief(brief, report)
     TaskTrack(store.root / "tasks.json").complete(state.question, [brief.verdict])
     log.emit("brief_ready", verdict=brief.verdict, judge=state.judge)
     log.emit("run_finished", status=state.status)
