@@ -149,7 +149,7 @@ Tier 1 (Supervisor): [Reads all positions, Socrates' questions, Plato's audit]
 | Stress-test before building | `/quorum "question" --converse --full` | 7 agents, Judge decides rounds, historian + survivor |
 | Fact-check prior research | `/quorum "validate" --artifact report.md --rigor high` | Validation workflow |
 | High-stakes irreversible decision | `/quorum "question" --ratify` | Human sign-off before finalization |
-| Pre-automation approval (Ralph loop) | `/quorum "Build X" --max --ratify` | Approve PRD before automated execution |
+| Pre-automation approval (Auto mode) | `/quorum "Build X" --max --ratify` | Approve PRD before running it unattended |
 | Bias-free production testing | Subagent with self-contained prompt | Subagent validation (fresh context) |
 
 ---
@@ -689,7 +689,7 @@ Modes compose. Stack them for maximum rigor.
 
 **Use it for:**
 - High-stakes irreversible decisions (architecture, vendor lock-in, public commitments)
-- Before automated execution — approve the PRD before a Ralph loop builds it
+- Before automated execution — approve the PRD before Auto mode builds it
 - When you have context the panel doesn't (business constraints, political dynamics, timeline pressure)
 - Accountability requirements — when you need a human-in-the-loop audit trail
 
@@ -705,7 +705,7 @@ Modes compose. Stack them for maximum rigor.
 # High-stakes architecture decision
 /quorum "Monolith or microservices for our payment system?" --max --ratify
 
-# Approve PRD before Ralph loop
+# Approve PRD before Auto-mode execution
 /quorum "Build the LiDAR detection pipeline" --max --ratify
 
 # Quick decision with sign-off

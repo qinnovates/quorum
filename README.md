@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.3.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.3.1-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -28,6 +28,19 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
+## What's New in 7.3.1: Safety Corrections
+
+| Change | Why |
+|---|---|
+| Gemini and Codex prompts go over stdin, not the command line | Command-line arguments are visible in process lists, logs and session transcripts |
+| Quorum asks before sending anything to a third party, with a separate yes for artifacts | Your data should not leave your machine because of a flag. `--max` no longer implies consent |
+| If no external model answers, the run stops with `FAILED_DIVERSITY` | A panel that silently becomes one model looks like a multi-model verdict but is not one |
+| The Ralph loop is removed | A script should not make the consent decision for you. Run PRDs in a Claude Code permission mode you choose |
+| `SAFETY.md` now separates instructions from enforced protections | Earlier wording described protections as if code enforced them. In 7.3.x, most are instructions to the model |
+| New guidance: never hardcode API keys; keep them in a vault you own | A key in a file, prompt or commit should be treated as exposed |
+
+**If you used earlier versions:** `--diverse` and `--max` could put your question and artifact text on the command line and send them to Google and OpenAI without asking. If a credential may have been in that content, rotate it. See the [changelog](docs/CHANGELOG.md).
+
 ## NEW: Hackathon Mode
 
 Say "build" and Quorum becomes a hackathon team. No flags, no config — just describe what you want built.
@@ -41,9 +54,9 @@ Quorum auto-detects implementation intent and runs the hackathon pipeline:
 1. **Decomposition agent** breaks your idea into a PRD with TDD enforcement — exact file paths, bite-sized tasks, machine-verifiable acceptance criteria
 2. **Adversarial stress-test** (`--max`) — Architect, Breaker, TDD Enforcer, Pragmatist, and Judge attack the PRD until it survives or gets rewritten
 3. **Output** — a battle-tested `_swarm/prd-*.md` ready for implementation
-4. **Ralph loop** executes each task autonomously: test → fail → implement → pass → commit → repeat
+4. **You execute it** in Claude Code, in the permission mode you choose. Auto mode runs the tasks unattended; read the consent warning first.
 
-From "Build X" to shipping code. One command.
+From "Build X" to a battle-tested PRD. One command. The decision to run it unattended stays with you.
 
 [Full hackathon docs →](#hackathon-mode-auto-detected)
 
@@ -346,7 +359,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 # Multi-model panel — break the single-model echo chamber
 /quorum "Should judges enforce unjust but constitutional laws?" --diverse
 
-# Auto-enabled: --max auto-enables --diverse when Gemini + Codex CLIs are installed
+# With --max, Quorum offers --diverse when Gemini + Codex CLIs are installed, and asks first
 /quorum "Is regulation of AI a net positive or negative?" --max
 ```
 
@@ -371,7 +384,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | `--no-web` | Privacy choice only the user can make |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
 | `--dry-run` | User wants to see the plan without spending tokens |
-| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Auto-enabled with `--max` when CLIs detected |
+| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Offered with `--max` when CLIs are detected; asks for consent before sending anything |
 | `--no-diverse` | Suppress multi-model auto-detection under `--max` |
 
 **Everything else is auto-detected:**
@@ -379,7 +392,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | What You Say | What Fires | How It's Detected |
 |-------------|-----------|-------------------|
 | "Should we use X or Y?" | Dialectic (2 agents, Socratic rounds) | Binary question pattern |
-| "Build a REST API for..." | Hackathon (PRD + TDD + Ralph loop) | Implementation intent: "build", "implement", "create", "add feature" |
+| "Build a REST API for..." | Hackathon (PRD + TDD, you choose how it runs) | Implementation intent: "build", "implement", "create", "add feature" |
 | "Review this" + `--artifact` | Review mode (agents analyze the file) | Artifact present + review/audit/validate language |
 | "What am I missing about..." | Explore mode (reframe the question) | Meta-question / exploratory language |
 | "EEG auth methods landscape" | Research mode (web search + synthesis) | Open knowledge question without artifact |
@@ -408,7 +421,7 @@ Human-in-the-loop approval gate. After deliberation, `--ratify` adds a structura
 ### When to use --ratify
 
 - **High-stakes irreversible decisions** — architecture choices, business model, security posture
-- **Before automated execution** — approve a PRD before feeding it to Ralph loop
+- **Before automated execution** — approve a PRD before running it in Auto mode
 - **When you have context the panel doesn't** — your REFINE injects what the agents missed
 - **Accountability** — verdict metadata shows what was audited, what was flagged, what you approved
 
@@ -432,7 +445,7 @@ Research (Schulz-Hardt et al. 2006) shows the first structured revision captures
 # Full stress-test with human approval
 /quorum "Should we build or buy auth?" --max --ratify
 
-# Approve PRD before Ralph loop execution
+# Approve PRD before Auto-mode execution
 /quorum "Build user auth with JWT" --max --ratify
 ```
 
@@ -542,7 +555,7 @@ The full panel iterates across rounds until a solution survives sustained attack
 The supervisor also auto-selects structure as needed:
 - **Teams** — if 3+ domains with different incentives. Teams deliberate internally, leads cross-challenge. Socrates questions weakest points, Plato audits evidence
 - **Dialectic** — if the question is binary or philosophical. 2 agents drill through contradiction across rounds
-- **Hackathon** — if the query is "build X". Generates PRD with TDD + acceptance criteria, stress-tests it, outputs Ralph loop command
+- **Hackathon** — if the query is "build X". Generates PRD with TDD + acceptance criteria, stress-tests it, outputs the PRD for you to execute
 
 **Swarm (20-1000+ agents, `--set N`):**
 - **Partition Engine** — MECE taxonomy, each agent gets a unique territory
@@ -572,7 +585,7 @@ graph LR
     G -->|"No"| E
     G -->|"Yes"| H["_swarm/prd-*.md"]
     D -->|"No"| H
-    H --> I["Ralph Loop<br/><i>TDD per task</i>"]
+    H --> I["You execute it<br/><i>Claude Code permission mode of your choice</i>"]
 
     style A fill:#FF3CAC,stroke:#D4006A,color:#fff
     style B fill:#E040FB,stroke:#AB00D9,color:#fff
@@ -601,9 +614,14 @@ graph LR
    - Judge: Computes convergence score. Declares READY or sends back for revision.
 4. **Output:** `_swarm/prd-{name}.md` — ready for implementation
 
-**The Ralph loop** executes each PRD task with fresh context: reads PRD + progress.md -> picks next task -> TDD (test -> fail -> implement -> pass -> commit) -> updates progress -> every 3 tasks runs Quorum review to catch regressions -> repeats until done.
+**Executing the PRD.** Quorum stops at the PRD. It does not run an autonomous build loop of its own. To execute the tasks, open the PRD in Claude Code and choose a permission mode yourself:
 
-**Note:** Ralph loop is local-only. Not included in the published marketplace version.
+- **Default mode:** Claude proposes each edit and command and waits for your approval. Safest; slowest.
+- **Auto mode:** Claude works through the PRD's tasks (test → fail → implement → pass → commit) without asking before each action. Switch with Shift+Tab, or start with `claude --permission-mode auto`.
+
+> **Consent warning.** Auto mode means you are approving every edit and command in advance, not one at a time. Before you turn it on: read the PRD (`--ratify` exists for exactly this); work on a fresh branch or worktree with nothing uncommitted that you care about; keep the task list scoped to what you reviewed; and stay close enough to stop it (Esc). Quorum will never switch modes for you. The choice to run unattended is yours to make, every time.
+
+Earlier versions shipped a shell script (the "Ralph loop") that called `claude --print` in a loop with no approval step. It was removed in v7.3.1: Claude Code's permission modes do the same job, with the consent decision made explicitly by the user instead of by a script.
 
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
@@ -662,6 +680,8 @@ graph TD
 
 ## Multi-Model Diversity (`--diverse`)
 
+> **Your data leaves your machine.** `--diverse`, and `--max` when the Gemini and Codex CLIs are available, send your question to Google and OpenAI. Artifacts are sent only if you approve. Quorum asks first, but that check is an instruction to the model, not enforced code. Do not use these modes with material you cannot share with those providers.
+
 All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what Claude *says*, not what Claude *believes*. On topics where Claude has strong RLHF-shaped priors, this creates an echo chamber — articulate consensus rather than genuine deliberation.
 
 `--diverse` breaks the single-model ceiling by replacing 2 agent slots with Gemini and Codex (OpenAI). Different training data, different RLHF, different blind spots.
@@ -670,7 +690,7 @@ All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what
 # Explicit multi-model panel
 /quorum "Should judges enforce unjust but constitutional laws?" --diverse
 
-# Auto-enabled: --max auto-enables --diverse when CLIs are detected
+# With --max, Quorum offers --diverse when CLIs are detected, and asks first
 /quorum "Should we open-source our core engine?" --max
 
 # Suppress auto-detection
@@ -679,7 +699,7 @@ All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what
 
 ### How it works
 
-1. **Phase 0** — Pre-flight check: verify `gemini` and `codex` CLIs are authenticated. If either fails, fall back to all-Claude with a warning
+1. **Phase 0** — Pre-flight check: verify `gemini` and `codex` CLIs are authenticated. If both fail, the run stops with `FAILED_DIVERSITY`; re-run with `--no-diverse` to accept a single-model panel
 2. **Phase 1** — 3 Claude agents + 1 Gemini agent + 1 Codex agent work in parallel, independently. External models get generalist/outsider slots where different priors add the most value
 3. **Phase 2** — Claim pool entries are tagged with `model: claude|gemini|codex` for cross-model tracking
 4. **Phase 3** — Claude agents debate as normal. The supervisor explicitly surfaces external model claims for cross-review
@@ -803,6 +823,12 @@ Swarm reports add:
 - **Cascades** — Findings that changed the swarm's trajectory
 - **Coalition Map** — Which territory groups aligned on which recommendations
 - **Sentiment Trajectory** — How the swarm's collective position evolved across rounds
+
+## API Keys and Secrets
+
+**Never hardcode an API key.** Not in code, config, prompts, URLs, commits or command lines. Keep keys in a vault you own, such as your OS keychain, 1Password, HashiCorp Vault, a cloud secret manager or SOPS/age, and scope each key to the least it needs.
+
+Quorum does not need your API keys. The Gemini and Codex CLIs use their own login. If a key lands anywhere it should not, treat it as exposed and rotate it. Deleting it is not enough.
 
 ## Honest Limitations
 
