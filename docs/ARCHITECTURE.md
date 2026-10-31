@@ -177,7 +177,7 @@ Your answers shape which experts I bring in and what they optimize for.
 When the vagueness gate fires and Codex CLI is detected (`codex exec "ping"` succeeds), the supervisor invokes Codex to generate 3 alternative prompt reformulations:
 
 ```bash
-codex exec "Given this vague prompt: '{user_prompt}', suggest 3 precise reformulations that specify scope, constraints, and success criteria. Return as numbered list." --json --skip-git-repo-check
+codex exec --skip-git-repo-check --sandbox read-only - < _swarm/tmp/{run_id}-codex-reformulate.txt
 ```
 
 The supervisor presents both its own clarifying questions AND Codex's reformulations. The user can:

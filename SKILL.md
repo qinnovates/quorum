@@ -66,7 +66,7 @@ Every panel of 5+ agents includes at least 2 adversarial agents. Not 1.
 | `--no-web` | Privacy choice — stops web searches. Note: does not block Codex CLI prompt improvement (v7.3.0) when vagueness gate fires |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
 | `--dry-run` | User wants to see the plan without spending tokens |
-| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Auto-enabled with `--max` when CLIs detected |
+| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Offered with `--max` when CLIs are detected; asks for consent before sending anything |
 | `--no-diverse` | Suppress multi-model auto-detection under `--max` |
 
 **Everything else is auto-detected by the supervisor:**
@@ -396,7 +396,7 @@ All Quorum agents are Claude subagents. CDP profiles and mandatory adversarial c
 # Explicit multi-model panel
 /quorum "Should judges enforce unjust but constitutional laws?" --diverse
 
-# Auto-enabled: --max auto-enables --diverse when CLIs are detected
+# With --max, Quorum offers --diverse when CLIs are detected, and asks first
 /quorum "Should we open-source our core engine?" --max
 
 # Suppress auto-detection
@@ -420,7 +420,7 @@ External models get **generalist/outsider persona slots** — where different pr
 ### Auto-Detection Logic (Phase 0)
 
 1. If `--diverse` is explicitly set → use multi-model panel
-2. If `--max` is set and `--no-diverse` is NOT set → check if `gemini` and `codex` CLIs are available via pre-flight: `gemini -p "ping"` and `codex exec "ping"`. If both succeed → auto-enable. If one fails → use the available one. If both fail → stop with `FAILED_DIVERSITY`, name what failed, and do not continue as a multi-model run. To accept a single-model panel, the user re-runs with `--no-diverse`
+2. If `--max` is set and `--no-diverse` is NOT set → after consent (see Consent and Prompt Handling below), check if `gemini` and `codex` CLIs are available via pre-flight: `gemini -p "ping"` and `codex exec "ping"`. If both succeed → auto-enable. If one fails → use the available one. If both fail → stop with `FAILED_DIVERSITY`, name what failed, and do not continue as a multi-model run. To accept a single-model panel, the user re-runs with `--no-diverse`
 3. If neither `--max` nor `--diverse` → all-Claude (default tier doesn't justify added latency)
 
 ### Consent and Prompt Handling (required)

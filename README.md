@@ -359,7 +359,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 # Multi-model panel — break the single-model echo chamber
 /quorum "Should judges enforce unjust but constitutional laws?" --diverse
 
-# Auto-enabled: --max auto-enables --diverse when Gemini + Codex CLIs are installed
+# With --max, Quorum offers --diverse when Gemini + Codex CLIs are installed, and asks first
 /quorum "Is regulation of AI a net positive or negative?" --max
 ```
 
@@ -384,7 +384,7 @@ Parallel agents with **mandatory adversarial**. Critics must counter-propose, no
 | `--no-web` | Privacy choice only the user can make |
 | `--ponder` | User explicitly wants Q&A before the swarm runs |
 | `--dry-run` | User wants to see the plan without spending tokens |
-| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Auto-enabled with `--max` when CLIs detected |
+| `--diverse` | Use multi-model panel (Gemini + Codex alongside Claude). Offered with `--max` when CLIs are detected; asks for consent before sending anything |
 | `--no-diverse` | Suppress multi-model auto-detection under `--max` |
 
 **Everything else is auto-detected:**
@@ -690,7 +690,7 @@ All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what
 # Explicit multi-model panel
 /quorum "Should judges enforce unjust but constitutional laws?" --diverse
 
-# Auto-enabled: --max auto-enables --diverse when CLIs are detected
+# With --max, Quorum offers --diverse when CLIs are detected, and asks first
 /quorum "Should we open-source our core engine?" --max
 
 # Suppress auto-detection
