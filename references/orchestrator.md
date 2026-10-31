@@ -166,7 +166,8 @@ Keep this ledger through the run:
 
 - **Give seats equal first-round budgets,** so no voice is drowned out by spend. Keep a reserve for Challengers and final synthesis. Early research must not consume it.
 - **Scope the context.** Give each agent only what its role needs. Challengers get less on purpose.
-- **Use compact handoffs.** Pass deduped claims with sources, tiers, open questions and a short summary. Never pass whole transcripts.
+- **Use compact handoffs.** Pass deduped claims with sources, tiers, open questions and a short summary. Never pass whole transcripts. Treat a claim marked `partial` as incomplete: read the full claim before relying on it.
+- **Count documents, not mentions.** Agreement across models on one document is one source. Report it that way.
 - **Put stable text first and reuse it,** so hosts with prompt caching can apply it. Shared instructions and the question can be identical across seats. Answers cannot.
 - **Point to files rather than retyping them.** Retyping pays for the same text again.
 - **Cap output by role.** Short for extraction, longer for synthesis.

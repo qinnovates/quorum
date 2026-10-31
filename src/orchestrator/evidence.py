@@ -45,22 +45,23 @@ def _pick(candidates: list[Candidate], prefer_strength: bool) -> Candidate:
     return min(candidates, key=lambda c: c.rank)
 
 
-def route_role(
-    candidates: list[Candidate],
-    role: str,
-    needs: frozenset[str],
-    evidence: list[RoleEvidence],
-    bars: dict[str, float],
-    today: date,
-    *,
-    family: str | None = None,
-    max_age_days: int = DEFAULT_MAX_AGE_DAYS,
-    prefer_strength: bool = False,
-) -> RouteDecision:
-    """Cheapest candidate that clears the bar, or strongest on high stakes.
+def _proven_models(
+    evidence: list[RoleEvidence], role: str, bar: float | None, today: date, max_age_days: int
+) -> dict[str, RoleEvidence]:
+    if bar is None:
+        return {}
+    return {
+        item.model_id: item for item in evidence
+        if item.role == role and _clears_bar(item, bar, today, max_age_days)
+    }
 
-    With no evidence, the same preference applies and the choice is `unproven`.
-    """
+
+def route_role(
+    candidates: list[Candidate], role: str, needs: frozenset[str], evidence: list[RoleEvidence],
+    bars: dict[str, float], today: date, *, family: str | None = None,
+    max_age_days: int = DEFAULT_MAX_AGE_DAYS, prefer_strength: bool = False,
+) -> RouteDecision:
+    """Cheapest candidate that clears the bar, or strongest on high stakes."""
     if role not in ROLES:
         raise ValueError(f"unknown role {role!r}; use one of {sorted(ROLES)}")
     eligible = [
@@ -70,11 +71,7 @@ def route_role(
     if not eligible:
         raise NoRoute(f"no provider can fill role {role} (family={family})")
     bar = bars.get(role)
-    proven = {}
-    if bar is not None:
-        for item in evidence:
-            if item.role == role and _clears_bar(item, bar, today, max_age_days):
-                proven[item.model_id] = item
+    proven = _proven_models(evidence, role, bar, today, max_age_days)
     cleared = [c for c in eligible if c.model_id in proven]
     if cleared:
         chosen = _pick(cleared, prefer_strength)

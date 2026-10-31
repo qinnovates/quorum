@@ -7,3 +7,5 @@ __pycache__/
 quorum.toml
 .env
 .env.*
+build/
+*.egg-info/

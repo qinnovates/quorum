@@ -18,6 +18,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(_NoRedirect)
 DIRECT_OPENER = urllib.request.build_opener(_NoRedirect, urllib.request.ProxyHandler({}))
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+MAX_RESPONSE_BYTES = 10_000_000
 
 
 def opener_for(url: str) -> urllib.request.OpenerDirector:
@@ -34,4 +35,7 @@ def post_json(url: str, body: dict, timeout_s: float, headers: dict[str, str] | 
         method="POST",
     )
     with opener_for(url).open(req, timeout=timeout_s) as resp:  # noqa: S310 - user-configured endpoint
-        return json.loads(resp.read().decode())
+        raw = resp.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise ValueError(f"response is over {MAX_RESPONSE_BYTES} bytes")
+    return json.loads(raw.decode())

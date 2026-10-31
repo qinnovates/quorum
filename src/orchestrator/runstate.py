@@ -8,20 +8,23 @@ import json
 import os
 import re
 import secrets as stdlib_secrets
-from collections.abc import Iterator
+import time
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TextIO
 
 try:
     import fcntl
 except ImportError:  # Windows has no fcntl; runs there are single-writer
     fcntl = None
 
-from .provenance import GENESIS_HASH, append_record
+from .provenance import GENESIS_HASH, append_record, node_hash, verify_records
 
 _RUN_ID = re.compile(r"^[a-f0-9]{16}$")
 KEY_BYTES = 32
+LOCK_POLL_S = 0.1
 
 
 class StateIntegrityError(ValueError):
@@ -70,12 +73,30 @@ class RunState:
     record_count: int = 0
     handoff_sent_bytes: int = 0
     handoff_full_bytes: int = 0
+    claim_nodes: dict[str, str] = field(default_factory=dict)
+    is_challenge_incomplete: bool = False
+    entailment: dict[str, str] = field(default_factory=dict)
     brief: str = ""
 
 
 def default_state_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     return Path(base) / "quorum" / "runs"
+
+
+def _acquire(handle: TextIO, wait_s: float | None) -> None:
+    if wait_s is None:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        return
+    deadline = time.monotonic() + wait_s
+    while True:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("the run is busy; try again when its current step ends") from None
+            time.sleep(LOCK_POLL_S)
 
 
 @dataclass
@@ -111,19 +132,34 @@ class RunStore:
         return path
 
     @contextmanager
-    def locked(self, run_id: str) -> Iterator[None]:
-        """One writer at a time, so parallel records cannot lose a seat."""
+    def locked(self, run_id: str, wait_s: float | None = None) -> Iterator[None]:
+        """One writer at a time. With `wait_s`, give up rather than wait forever."""
         descriptor = os.open(self.run_dir(run_id) / "lock", os.O_WRONLY | os.O_CREAT, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             if fcntl is not None:
-                fcntl.flock(handle, fcntl.LOCK_EX)
+                _acquire(handle, wait_s)
             yield
+
+    def require_intact_record(self, state: RunState) -> None:
+        """A killed step leaves the record ahead of state. Continuing would fork it."""
+        check = verify_records(self.run_dir(state.run_id) / "record.jsonl", state.record_head)
+        if not check.is_intact:
+            raise StateIntegrityError(f"run {state.run_id} was interrupted ({check.detail}); start a new run")
 
     def add_record(self, state: RunState, kind: str, **fields: object) -> None:
         """Link one record into the run's chain. Fields hold no raw text."""
         path = self.run_dir(state.run_id) / "record.jsonl"
         state.record_head = append_record(path, state.record_count, kind, fields, state.record_head)
         state.record_count += 1
+
+    def add_node(
+        self, state: RunState, kind: str, content_digest: str, parents: Iterable[str] = (), **fields: object
+    ) -> str:
+        """Add a lineage record and return its node hash."""
+        ordered = sorted(set(parents))
+        node = node_hash(kind, content_digest, ordered)
+        self.add_record(state, kind, node=node, content=content_digest, parents=ordered, **fields)
+        return node
 
     def request_cancel(self, run_id: str) -> None:
         """Works during `finish`: it takes no lock, and calls check it."""

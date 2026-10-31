@@ -31,6 +31,7 @@ from .usage import charge_usage
 HOST_FAMILY = "claude"
 STATUS_QUO_OPTION = "keep things as they are"
 MAX_HOST_SEATS = 1
+ESTIMATE_TOLERANCE = 2
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -79,15 +80,17 @@ def start_run(
         raise RunError("options and criteria must be single lines")
     budgets = PhaseBudgets.from_stakes(config.limits.token_budget, intent.stakes, config.phase_shares)
     choices = [*options, STATUS_QUO_OPTION] if options else []
-    seats = _plan_seats(config, intent, question, budgets, choices, criteria, host_seats, today or date.today())
     state = RunState(
-        stdlib_secrets.token_hex(8), redact(question), intent.stakes, "OPEN",
-        list(intent.assumptions), budgets.allowance,
+        stdlib_secrets.token_hex(8), redact(question), intent.stakes, "OPEN", list(intent.assumptions),
+        budgets.allowance, ratify=ratify, options=[redact(normalize_option(option)) for option in choices],
+        criteria={redact(name): weight for name, weight in (criteria or {}).items()},
     )
-    state.seats = seats
-    state.ratify = ratify
-    state.options = [redact(normalize_option(option)) for option in choices]
-    state.criteria = {redact(name): weight for name, weight in (criteria or {}).items()}
+    state.seats = _plan_seats(config, intent, question, budgets, choices, criteria, host_seats, today or date.today())
+    _open_run(config, state, store, epic)
+    return state
+
+
+def _open_run(config: Config, state: RunState, store: RunStore, epic: str) -> None:
     tracker = TaskTrack(store.root / "tasks.json")
     prior = tracker.find(state.question)
     state.reused_task = prior is not None and prior.status == "done"
@@ -97,7 +100,6 @@ def start_run(
     store.save(state)
     _call_python_seats(config, state, log, store)
     store.save(state)
-    return state
 
 
 def _plan_seats(
@@ -139,6 +141,8 @@ def _settle(state: RunState, config: Config, seat: Seat, result: Result, log: Ev
     try:
         if not result.ok:
             raise AnswerError(result.error or "provider failed")
+        if estimate_tokens(result.text) > seat.max_output_tokens * ESTIMATE_TOLERANCE:
+            raise AnswerError(f"answer far exceeds the {seat.max_output_tokens} token cap")
         answer = parse_answer(redact(result.text))
         if state.options and normalize_option(answer["option"]) not in state.options:
             raise AnswerError("answer is not one of the listed options")
@@ -185,7 +189,10 @@ def _call_python_seats(config: Config, state: RunState, log: EventLog, store: Ru
             for s in runnable
         }
     for seat in runnable:
-        _settle(state, config, seat, _collect(futures[seat.seat_id], seat), log, store)
+        try:
+            _settle(state, config, seat, _collect(futures[seat.seat_id], seat), log, store)
+        except Exception as exc:  # one seat's defect must not lose the other paid answers
+            seat.status, seat.error = "failed", type(exc).__name__
 
 
 def record_host_answer(
@@ -194,6 +201,7 @@ def record_host_answer(
     """Accept one answer per issued host seat. Usage is computed here, as an estimate."""
     if state.status != "OPEN":
         raise RunError(f"run is {state.status}; it no longer accepts answers")
+    store.require_intact_record(state)
     seat = next((s for s in state.seats if s.seat_id == seat_id), None)
     if seat is None or seat.attestation != "host":
         raise RunError(f"seat {seat_id} is not an issued host seat")

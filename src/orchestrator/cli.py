@@ -18,16 +18,18 @@ from .config import Config, ConfigError, load, tighten
 from .diversity import DiversityError
 from .doctor import remote_providers, run_doctor
 from .intent import IntentResult
-from .conclude import finish_run, issue_host_challenge, live_claims, record_host_challenge
+from .claim_gather import live_claims
+from .conclude import finish_run, issue_host_challenge, record_host_challenge
 from .dashboard import REFRESH_SECONDS, write_dashboard
 from .evaluation import control_passes, load_cases, run_arm
-from .provenance import verify_records
+from .provenance import claim_lineage, claim_summaries, verify_records
 from .run import RunError, log_for, record_host_answer, start_run
 from .secrets import redact
 from .setup_config import detect_tools, write_user_config
 from .runstate import RunStore, default_state_dir
 
 WATCH_LIMIT_SECONDS = 3600
+READ_LOCK_WAIT_S = 30.0
 HANDOFF_PARENT = "_swarm"
 HANDOFF_DIR = "_swarm/tmp"
 MAX_HANDOFF_BYTES = 1_000_000
@@ -197,9 +199,25 @@ def _doctor(args, config, store) -> dict:
 
 
 def _verify(args, config, store) -> dict:
-    state = store.load(args.run)
-    check = verify_records(store.run_dir(args.run) / "record.jsonl", state.record_head)
+    with store.locked(args.run, wait_s=READ_LOCK_WAIT_S):
+        state = store.load(args.run)
+        check = verify_records(store.run_dir(args.run) / "record.jsonl", state.record_head)
     return {"text": f"{'OK ' if check.is_intact else 'FAIL'} run record: {check.detail}"}
+
+
+def _lineage(args, config, store) -> dict:
+    """Trace one claim, or list claims. Records hold hashes and labels, never claim text."""
+    path = store.run_dir(args.run) / "record.jsonl"
+    with store.locked(args.run, wait_s=READ_LOCK_WAIT_S):
+        check = verify_records(path, store.load(args.run).record_head)
+    if not check.is_intact:
+        raise RunError(f"run record failed verification: {check.detail}")
+    if not args.claim:
+        return {"claims": claim_summaries(path)}
+    rows = claim_lineage(path, args.claim)
+    if not rows:
+        raise RunError(f"claim {args.claim} is not in run {args.run}")
+    return {"records": [{"sequence": r["sequence"], "kind": r["kind"], **r["fields"]} for r in rows]}
 
 
 def _eval(args, config, store) -> dict:
@@ -211,58 +229,38 @@ def _eval(args, config, store) -> dict:
     return report
 
 
+REQUIRED = {"required": True}
+REPEATED = {"action": "append", "default": []}
+FLAG = {"action": "store_true"}
+RUN = ("--run", REQUIRED)
+COMMANDS = {
+    "start": (_start, [
+        ("--question-file", REQUIRED), ("--allow-provider", REPEATED), ("--host-seats", {"type": int, "default": 0}),
+        ("--epic", {"default": "general"}), ("--option", REPEATED), ("--ratify", FLAG), ("--criterion", REPEATED),
+    ]),
+    "record": (_record, [RUN, ("--seat", REQUIRED), ("--prompt-hash", REQUIRED), ("--file", REQUIRED)]),
+    "challenge": (_challenge, [RUN]),
+    "record-challenge": (_record_challenge, [RUN, ("--file", REQUIRED)]),
+    "finish": (_finish, [RUN]),
+    "note": (_note, [RUN, ("--text", REQUIRED)]),
+    "stop": (_stop, [RUN, ("--yes", FLAG)]),
+    "dashboard": (_dashboard, [RUN, ("--watch", FLAG)]),
+    "eval": (_eval, [("--cases", REQUIRED), ("--baseline", {}), ("--allow-provider", REPEATED)]),
+    "setup": (None, [("--force", FLAG)]),
+    "verify": (_verify, [RUN]),
+    "lineage": (_lineage, [RUN, ("--claim", {})]),
+    "doctor": (_doctor, [("--live", FLAG), ("--allow-provider", REPEATED)]),
+}
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="quorum-run")
     commands = parser.add_subparsers(dest="command", required=True)
-    start = commands.add_parser("start")
-    start.add_argument("--question-file", required=True)
-    start.add_argument("--allow-provider", action="append", default=[])
-    start.add_argument("--host-seats", type=int, default=0)
-    start.add_argument("--epic", default="general")
-    start.add_argument("--option", action="append", default=[])
-    start.add_argument("--ratify", action="store_true")
-    start.add_argument("--criterion", action="append", default=[])
-    start.set_defaults(handler=_start)
-    record = commands.add_parser("record")
-    for name in ("--run", "--seat", "--prompt-hash", "--file"):
-        record.add_argument(name, required=True)
-    record.set_defaults(handler=_record)
-    challenge = commands.add_parser("challenge")
-    challenge.add_argument("--run", required=True)
-    challenge.set_defaults(handler=_challenge)
-    record_challenge = commands.add_parser("record-challenge")
-    record_challenge.add_argument("--run", required=True)
-    record_challenge.add_argument("--file", required=True)
-    record_challenge.set_defaults(handler=_record_challenge)
-    finish = commands.add_parser("finish")
-    finish.add_argument("--run", required=True)
-    finish.set_defaults(handler=_finish)
-    note = commands.add_parser("note")
-    note.add_argument("--run", required=True)
-    note.add_argument("--text", required=True)
-    note.set_defaults(handler=_note)
-    stop = commands.add_parser("stop")
-    stop.add_argument("--run", required=True)
-    stop.add_argument("--yes", action="store_true")
-    stop.set_defaults(handler=_stop)
-    dashboard = commands.add_parser("dashboard")
-    dashboard.add_argument("--run", required=True)
-    dashboard.add_argument("--watch", action="store_true")
-    dashboard.set_defaults(handler=_dashboard)
-    evaluate = commands.add_parser("eval")
-    evaluate.add_argument("--cases", required=True)
-    evaluate.add_argument("--baseline")
-    evaluate.add_argument("--allow-provider", action="append", default=[])
-    evaluate.set_defaults(handler=_eval)
-    setup = commands.add_parser("setup")
-    setup.add_argument("--force", action="store_true")
-    verify = commands.add_parser("verify")
-    verify.add_argument("--run", required=True)
-    verify.set_defaults(handler=_verify)
-    doctor = commands.add_parser("doctor")
-    doctor.add_argument("--live", action="store_true")
-    doctor.add_argument("--allow-provider", action="append", default=[])
-    doctor.set_defaults(handler=_doctor)
+    for name, (handler, arguments) in COMMANDS.items():
+        command = commands.add_parser(name)
+        for flag, options in arguments:
+            command.add_argument(flag, **options)
+        command.set_defaults(handler=handler)
     return parser
 
 
@@ -273,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         payload = args.handler(args, _load_config(), RunStore(default_state_dir()))
-    except (ConfigError, DiversityError, RunError, OSError, ValueError, KeyError) as exc:
+    except (ConfigError, DiversityError, RunError, OSError, ValueError, LookupError, RecursionError) as exc:
         print(f"quorum: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     print(payload["text"] if set(payload) == {"text"} else json.dumps(payload, indent=2))

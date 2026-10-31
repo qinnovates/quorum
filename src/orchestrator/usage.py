@@ -7,9 +7,10 @@ from dataclasses import asdict
 from .config import Config
 from .ledger import Ledger
 from .limits import PhaseBudgets
-from .handoff import payload_bytes
+from .handoff import encode_payload, payload_bytes
+from .provenance import content_hash
 from .providers import CHARS_PER_TOKEN_ESTIMATE, Result
-from .runstate import RunState
+from .runstate import RunState, RunStore
 
 
 def charge_usage(state: RunState, config: Config, phase: str, seat_role: str, result: Result) -> None:
@@ -45,7 +46,13 @@ def total_tokens(state: RunState) -> int:
     return sum(row["tokens_in"] + row["tokens_out"] for row in state.usage)
 
 
-def record_handoff(state: RunState, payload: dict) -> None:
-    """Measure a handoff against resending every panel answer in full."""
+def record_handoff(state: RunState, store: RunStore, payload: dict) -> str:
+    """Commit to exactly what was sent, and measure it against full answers."""
     state.handoff_sent_bytes += payload_bytes(payload)
     state.handoff_full_bytes += sum(payload_bytes(s.answer) for s in state.seats if s.answer)
+    claim_ids = sorted(row["id"] for row in payload.get("claims", []))
+    parents = [state.claim_nodes[cid] for cid in claim_ids if cid in state.claim_nodes]
+    return store.add_node(
+        state, "handoff_sent", content_hash(encode_payload(payload)), parents,
+        role=payload["role"], claim_ids=claim_ids,
+    )

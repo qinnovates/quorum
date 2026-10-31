@@ -10,16 +10,23 @@ pinned to the checked address, so DNS cannot change between check and call.
 
 from __future__ import annotations
 
+import html
 import http.client
 import ipaddress
+import queue
 import re
 import socket
 import ssl
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from types import MappingProxyType
 from urllib.parse import urlsplit
 
+from .claim_check import fold_text
+from .provenance import content_hash
 from .secrets import contains_credential
 
 FETCH_TIMEOUT_S = 8.0
@@ -32,9 +39,15 @@ MIN_QUOTE_CHARS = 12
 MIN_QUOTE_WORDS = 3
 OVERALL_DEADLINE_S = 30.0
 MAX_WORKERS = 4
+CONTEXT_CHARS = 120
+MAX_OCCURRENCES = 5
 USER_AGENT = "quorum-source-check"
-_HIDDEN_BLOCK = re.compile(r"(?is)<(script|style|head|noscript)\b.*?</\1\s*>|<!--.*?-->")
-_TAG = re.compile(r"(?s)<[^>]*>")
+_HIDDEN_TAGS = ("script", "style", "noscript", "template", "title", "noframes", "noembed", "iframe", "datalist")
+_TAG_NAME_END = r"(?=[\s/>]|$)"
+_HIDDEN_OPEN = re.compile(rf"<({'|'.join(_HIDDEN_TAGS)}){_TAG_NAME_END}", re.IGNORECASE)
+_HIDDEN_CLOSE = {tag: re.compile(rf"</{tag}{_TAG_NAME_END}", re.IGNORECASE) for tag in _HIDDEN_TAGS}
+_MARKUP_START = re.compile(r"<[a-zA-Z/!?]")
+_TAG_STOP = re.compile(r"""[>"']""")
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 
@@ -43,11 +56,23 @@ class UnsafeUrl(ValueError):
 
 
 @dataclass(frozen=True)
+class Snapshot:
+    """What a page said when checked. Contexts stay in memory and are never recorded."""
+
+    page_hash: str
+    retrieved_at: str
+    quote_offset: int
+    contexts: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
 class SourceCheck:
     """`verified` holds (url, quote) pairs, so a quote cannot borrow a URL's tier."""
 
     verified: frozenset[tuple[str, str]] = frozenset()
     reachable: frozenset[str] = frozenset()
+    snapshots: Mapping[tuple[str, str], Snapshot] = field(default_factory=lambda: MappingProxyType({}))
+    over_limit: int = 0
 
 
 def _is_public(address: str) -> bool:
@@ -123,31 +148,107 @@ def fetch_page(url: str) -> str:
         connection.close()
 
 
-def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().lower()
+def _opens_attribute_value(page: str, quote_index: int) -> bool:
+    """A quote mark opens a value only straight after `=`, as in `<a href="x">`."""
+    position = quote_index - 1
+    while position >= 0 and page[position].isspace():
+        position -= 1
+    return position >= 0 and page[position] == "="
+
+
+def _tag_end(page: str, start: int) -> int:
+    """Index after a tag's closing `>`, skipping quoted attributes. Never moves backward."""
+    position = start
+    while True:
+        stop = _TAG_STOP.search(page, position)
+        if stop is None:
+            return len(page)
+        if stop.group() == ">":
+            return stop.end()
+        if not _opens_attribute_value(page, stop.start()):
+            position = stop.end()
+            continue
+        closing_quote = page.find(stop.group(), stop.end())
+        if closing_quote < 0:
+            return len(page)
+        position = closing_quote + 1
+
+
+def _markup_end(page: str, start: int) -> int:
+    """Index after markup at `start`. Anything left open hides the rest of the page."""
+    if page.startswith(("<!-->", "<!--->"), start):
+        return page.find(">", start) + 1
+    if page.startswith("<!--", start):
+        close = page.find("-->", start + 4)
+        return len(page) if close < 0 else close + 3
+    hidden = _HIDDEN_OPEN.match(page, start)
+    if hidden:
+        closing = _HIDDEN_CLOSE[hidden.group(1).lower()].search(page, hidden.end())
+        return len(page) if closing is None else _tag_end(page, closing.end())
+    return _tag_end(page, start)
 
 
 def visible_text(page: str) -> str:
-    """Text a reader sees, so markup cannot be quoted as evidence."""
-    return _TAG.sub(" ", _HIDDEN_BLOCK.sub(" ", page))
+    """Text outside hidden elements, entities decoded. Linear, so markup cannot stall it.
+
+    CSS and `hidden` attributes are not interpreted, and a page owner can print
+    any text visibly anyway, so this keeps out page plumbing, not a hostile author.
+    """
+    parts, position = [], 0
+    while (opening := page.find("<", position)) >= 0:
+        parts.append(page[position:opening])
+        if _MARKUP_START.match(page, opening):
+            parts.append(" ")
+            position = _markup_end(page, opening)
+        else:
+            parts.append("<")
+            position = opening + 1
+    parts.append(page[position:])
+    return html.unescape("".join(parts))
+
+
+def _occurrences(text: str, quote: str) -> list[int]:
+    found, start = [], text.find(quote)
+    while start >= 0 and len(found) < MAX_OCCURRENCES:
+        found.append(start)
+        start = text.find(quote, start + 1)
+    return found
+
+
+def snapshot_quote(quote: str, page: str) -> Snapshot | None:
+    """Locate a substantial quote in the visible text, with the words around each use."""
+    normalized = fold_text(quote).lower()
+    is_substantial = len(normalized) >= MIN_QUOTE_CHARS and len(normalized.split()) >= MIN_QUOTE_WORDS
+    text = fold_text(visible_text(page)).lower()
+    offsets = _occurrences(text, normalized) if is_substantial else []
+    if not offsets:
+        return None
+    contexts = tuple(
+        (text[max(start - CONTEXT_CHARS, 0):start], text[start + len(normalized):start + len(normalized) + CONTEXT_CHARS])
+        for start in offsets
+    )
+    retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return Snapshot(content_hash(page), retrieved_at, offsets[0], contexts)
 
 
 def quote_on_page(quote: str, page: str) -> bool:
-    normalized = _normalize(quote)
-    is_substantial = len(normalized) >= MIN_QUOTE_CHARS and len(normalized.split()) >= MIN_QUOTE_WORDS
-    return is_substantial and normalized in _normalize(visible_text(page))
+    return snapshot_quote(quote, page) is not None
 
 
-def _check_one(pair: tuple[str, str], allowed_hosts: frozenset[str]) -> str:
+def _check_one(pair: tuple[str, str], allowed_hosts: frozenset[str]) -> tuple[str, Snapshot | None]:
     url, quote = pair
     try:
         host, _ = validate_url(url)
         if not host_is_allowed(host, allowed_hosts):
-            return "skipped"
+            return "skipped", None
         page = fetch_page(url)
     except (ValueError, OSError, http.client.HTTPException):
-        return "unreachable"
-    return "verified" if quote_on_page(quote, page) else "reachable"
+        return "unreachable", None
+    try:
+        snapshot = snapshot_quote(quote, page)
+    except ValueError:  # an entity too large to decode: the page was reached, the quote not shown
+        return "reachable", None
+    return ("verified" if snapshot else "reachable"), snapshot
 
 
 def _is_listed(url: str, allowed_hosts: frozenset[str]) -> bool:
@@ -157,16 +258,42 @@ def _is_listed(url: str, allowed_hosts: frozenset[str]) -> bool:
         return False
 
 
+def _run_checks(pairs: list[tuple[str, str]], allowed_hosts: frozenset[str]) -> list[tuple[str, Snapshot | None]]:
+    """Daemon workers, so a stuck fetch cannot hold the run or the process past the deadline."""
+    waiting: queue.SimpleQueue[int] = queue.SimpleQueue()
+    finished: dict[int, tuple[str, Snapshot | None]] = {}
+    expired = threading.Event()
+    for index in range(len(pairs)):
+        waiting.put(index)
+
+    def work() -> None:
+        while not expired.is_set():
+            try:
+                index = waiting.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                finished[index] = _check_one(pairs[index], allowed_hosts)
+            except Exception:  # one bad page fails its own check, never the run
+                finished[index] = ("unreachable", None)
+
+    workers = [threading.Thread(target=work, name="quorum-source", daemon=True) for _ in range(MAX_WORKERS)]
+    for worker in workers:
+        worker.start()
+    deadline = time.monotonic() + OVERALL_DEADLINE_S
+    for worker in workers:
+        worker.join(max(deadline - time.monotonic(), 0))
+    expired.set()
+    return [dict(finished).get(index, ("unreachable", None)) for index in range(len(pairs))]
+
+
 def check_sources(pairs: list[tuple[str, str]], allowed_hosts: frozenset[str]) -> SourceCheck:
-    """Check (url, quote) pairs on allowed hosts. The source count is capped."""
-    unique = sorted(pair for pair in set(pairs) if _is_listed(pair[0], allowed_hosts))[:MAX_SOURCES]
+    """Check (url, quote) pairs on allowed hosts, in the order given, up to the cap."""
+    listed = [pair for pair in dict.fromkeys(pairs) if _is_listed(pair[0], allowed_hosts)]
+    unique = listed[:MAX_SOURCES]
     if not unique:
         return SourceCheck()
-    pool = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="quorum-source")
-    futures = [pool.submit(_check_one, pair, allowed_hosts) for pair in unique]
-    wait(futures, timeout=OVERALL_DEADLINE_S)
-    pool.shutdown(wait=False, cancel_futures=True)
-    outcomes = [f.result() if f.done() and not f.cancelled() else "unreachable" for f in futures]
-    verified = frozenset(pair for pair, status in zip(unique, outcomes) if status == "verified")
-    reachable = frozenset(pair[0] for pair, status in zip(unique, outcomes) if status != "unreachable" and status != "skipped")
-    return SourceCheck(verified, reachable)
+    outcomes = _run_checks(unique, allowed_hosts)
+    snapshots = {pair: snapshot for pair, (_, snapshot) in zip(unique, outcomes) if snapshot}
+    reachable = frozenset(pair[0] for pair, (status, _) in zip(unique, outcomes) if status in ("verified", "reachable"))
+    return SourceCheck(frozenset(snapshots), reachable, MappingProxyType(snapshots), len(listed) - len(unique))

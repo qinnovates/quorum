@@ -24,6 +24,10 @@ max_output_tokens = 2000   # per-agent output cap
 # [verification]
 # fetch_sources = true
 # allowed_hosts = ["arxiv.org"]
+# Optional: a different model family checks that quotes support verdict-flipping claims.
+# Uses extra tokens, and sends the claim and quote to that provider. Needs a family
+# outside the claim's option. Without one, the claim loses its top tier.
+# entailment = true
 
 [pm]
 provider = "pm"
