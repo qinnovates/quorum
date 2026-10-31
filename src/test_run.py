@@ -13,7 +13,9 @@ from orchestrator.intent import assess_intent
 from orchestrator.limits import PhaseBudgets, RunLimits
 from orchestrator.providers import FakeProvider
 from orchestrator.router import Candidate
-from orchestrator.run import RunError, finish_run, record_host_answer, start_run
+from orchestrator.run import (
+    RunError, finish_run, issue_host_challenge, record_host_answer, record_host_challenge, start_run,
+)
 from orchestrator.runstate import RunStore
 from orchestrator.tasktrack import TaskTrack
 from datetime import date
@@ -252,3 +254,26 @@ def test_claim_newline_cannot_forge_a_heading():
 def test_option_prefix_is_normalized():
     from orchestrator.decision import normalize_option
     assert normalize_option("Use  Postgres") == "postgres"
+
+
+def test_answer_outside_named_options_fails_its_seat(store):
+    config = config_for(FakeProvider("g", "gemini", lambda p: answer("postgresql")))
+    state = start_run(config, QUESTION, store, options=["postgres", "mysql"])
+    assert state.seats[0].status == "failed" and "OPTIONS" in state.seats[0].prompt
+
+
+def test_host_challenge_disputes_other_families_once_per_seat(store):
+    gemini = FakeProvider("g", "gemini", lambda p: answer("postgres"))
+    config = config_for(gemini)
+    state = start_run(config, QUESTION, store, host_seats=1)
+    with pytest.raises(RunError, match="record every seat"):
+        issue_host_challenge(state, config)
+    record_host_answer(state, config, store, "S2", state.seats[1].prompt_hash, answer("postgres", text="host view"))
+    prompt = issue_host_challenge(state, config)
+    rows = json.loads(prompt.split("PAYLOAD: ", 1)[1])["claims"]
+    assert "host view" not in prompt and len(rows) == 1
+    reply = json.dumps({"objections": [{"claim_id": rows[0]["id"], "reason": "r", "source": "https://example.org/z"}]})
+    assert record_host_challenge(state, config, store, reply) == 1
+    with pytest.raises(RunError, match="already"):
+        record_host_challenge(state, config, store, reply)
+    assert "did not take part" not in finish_run(state, config, store)

@@ -46,6 +46,9 @@ class RunState:
     usage: list[dict] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     reused_task: bool = False
+    options: list[str] = field(default_factory=list)
+    host_disputes: list[str] = field(default_factory=list)
+    host_challenges_recorded: int = 0
     brief: str = ""
 
 

@@ -14,7 +14,9 @@ from pathlib import Path
 from .config import Config, ConfigError, load, tighten
 from .diversity import DiversityError
 from .intent import IntentResult
-from .run import RunError, finish_run, record_host_answer, start_run
+from .run import (
+    RunError, finish_run, issue_host_challenge, record_host_answer, record_host_challenge, start_run,
+)
 from .runstate import RunStore, default_state_dir
 
 USER_CONFIG = Path.home() / ".config" / "quorum" / "quorum.toml"
@@ -38,7 +40,9 @@ def _consume(path_text: str) -> str:
 
 
 def _start(args, config, store) -> dict:
-    state = start_run(config, args.question, store, host_seats=args.host_seats, epic=args.epic)
+    state = start_run(
+        config, args.question, store, host_seats=args.host_seats, epic=args.epic, options=args.option,
+    )
     if isinstance(state, IntentResult):
         return asdict(state)
     open_seats = [
@@ -57,8 +61,19 @@ def _record(args, config, store) -> dict:
 
 
 def _finish(args, config, store) -> dict:
-    state = store.load(args.run)
-    return {"brief": finish_run(state, config, store), "status": store.load(args.run).status}
+    with store.locked(args.run):
+        state = store.load(args.run)
+        return {"brief": finish_run(state, config, store), "status": store.load(args.run).status}
+
+
+def _challenge(args, config, store) -> dict:
+    return {"prompt": issue_host_challenge(store.load(args.run), config)}
+
+
+def _record_challenge(args, config, store) -> dict:
+    text = _consume(args.file)
+    with store.locked(args.run):
+        return {"new_disputes": record_host_challenge(store.load(args.run), config, store, text)}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -68,11 +83,19 @@ def _parser() -> argparse.ArgumentParser:
     start.add_argument("--question-file", required=True)
     start.add_argument("--host-seats", type=int, default=0)
     start.add_argument("--epic", default="general")
+    start.add_argument("--option", action="append", default=[])
     start.set_defaults(handler=_start)
     record = commands.add_parser("record")
     for name in ("--run", "--seat", "--prompt-hash", "--file"):
         record.add_argument(name, required=True)
     record.set_defaults(handler=_record)
+    challenge = commands.add_parser("challenge")
+    challenge.add_argument("--run", required=True)
+    challenge.set_defaults(handler=_challenge)
+    record_challenge = commands.add_parser("record-challenge")
+    record_challenge.add_argument("--run", required=True)
+    record_challenge.add_argument("--file", required=True)
+    record_challenge.set_defaults(handler=_record_challenge)
     finish = commands.add_parser("finish")
     finish.add_argument("--run", required=True)
     finish.set_defaults(handler=_finish)

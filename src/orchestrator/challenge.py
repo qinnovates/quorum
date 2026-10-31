@@ -44,7 +44,7 @@ def _pm_summary(config: Config, claims: list[ScoredClaim], state: RunState) -> s
     return result.text if result.ok else fallback
 
 
-def _challenge_prompt(claims: list[ScoredClaim], state: RunState, summary: str) -> str:
+def challenge_prompt(claims: list[ScoredClaim], state: RunState, summary: str) -> str:
     pool = [Claim(text=c.text, source=c.source, source_tier=c.tier) for c in claims]
     payload = build_handoff(pool, "challenger", open_questions=[], debate_summary=summary)
     payload["claims"].sort(key=lambda c: c["id"])
@@ -54,7 +54,7 @@ def _challenge_prompt(claims: list[ScoredClaim], state: RunState, summary: str) 
     )
 
 
-def _new_disputes(result: Result, known: set[str]) -> set[str]:
+def new_disputes(result: Result, known: set[str]) -> set[str]:
     try:
         data = json.loads(result.text[result.text.index("{"): result.text.rindex("}") + 1])
     except ValueError:
@@ -75,7 +75,7 @@ def _challenge_round(config: Config, state: RunState, claims: list[ScoredClaim],
         others = [c for c in claims if c.family != seat.family]
         if not others:
             continue
-        prompt = _challenge_prompt(others, state, summary)
+        prompt = challenge_prompt(others, state, summary)
         estimate = estimate_tokens(prompt) + seat.max_output_tokens
         if estimate > budgets.remaining("challenge"):
             log.emit("budget_refused", phase="challenge", reason="challenge budget spent")
@@ -83,11 +83,11 @@ def _challenge_round(config: Config, state: RunState, claims: list[ScoredClaim],
         result = config.providers[seat.provider].complete(prompt, max_output_tokens=seat.max_output_tokens)
         charge_usage(state, config, "challenge", "challenger", result)
         if result.ok:
-            disputes |= _new_disputes(result, {c.claim_id for c in others})
+            disputes |= new_disputes(result, {c.claim_id for c in others})
     return disputes
 
 
-def _with_disputes(claims: list[ScoredClaim], disputed: set[str]) -> list[ScoredClaim]:
+def with_disputes(claims: list[ScoredClaim], disputed: set[str]) -> list[ScoredClaim]:
     return [
         ScoredClaim(**{**asdict(c), "is_disputed": c.is_disputed or c.claim_id in disputed})
         for c in claims
@@ -101,7 +101,7 @@ def run_challenges(config: Config, state: RunState, claims: list[ScoredClaim], l
     for round_number in range(1, MAX_CHALLENGE_ROUNDS + 1):
         found = _challenge_round(config, state, claims, log) - disputed
         disputed |= found
-        claims = _with_disputes(claims, disputed)
+        claims = with_disputes(claims, disputed)
         new_verdict = build_brief(claims, [], []).verdict
         log.emit("challenge_round", round=round_number, new_disputes=len(found), verdict_changed=new_verdict != verdict)
         if not found or new_verdict == verdict:
