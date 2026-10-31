@@ -8,17 +8,21 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 
 from .config import Config, ConfigError, load, tighten
 from .diversity import DiversityError
 from .intent import IntentResult
-from .run import (
-    RunError, finish_run, issue_host_challenge, record_host_answer, record_host_challenge, start_run,
-)
+from .conclude import finish_run, issue_host_challenge, live_claims, record_host_challenge
+from .dashboard import REFRESH_SECONDS, write_dashboard
+from .evaluation import control_passes, load_cases, run_arm
+from .run import RunError, log_for, record_host_answer, start_run
+from .secrets import redact
 from .runstate import RunStore, default_state_dir
 
+WATCH_LIMIT_SECONDS = 3600
 USER_CONFIG = Path.home() / ".config" / "quorum" / "quorum.toml"
 PROJECT_CONFIG = Path("quorum.toml")
 
@@ -41,7 +45,8 @@ def _consume(path_text: str) -> str:
 
 def _start(args, config, store) -> dict:
     state = start_run(
-        config, args.question, store, host_seats=args.host_seats, epic=args.epic, options=args.option,
+        config, args.question, store, host_seats=args.host_seats, epic=args.epic,
+        options=args.option, ratify=args.ratify,
     )
     if isinstance(state, IntentResult):
         return asdict(state)
@@ -76,6 +81,52 @@ def _record_challenge(args, config, store) -> dict:
         return {"new_disputes": record_host_challenge(store.load(args.run), config, store, text)}
 
 
+def _note(args, config, store) -> dict:
+    with store.locked(args.run):
+        state = store.load(args.run)
+        note = redact(args.text)
+        state.notes.append(note)
+        log_for(store, args.run).emit("note_added", text=note)
+        store.save(state)
+    return {"notes": len(state.notes)}
+
+
+def _stop(args, config, store) -> dict:
+    """The one run-changing instruction. It needs an explicit --yes."""
+    if not args.yes:
+        raise RunError("stopping a run needs --yes")
+    status = store.load(args.run).status
+    if status != "OPEN":
+        raise RunError(f"run already finished with status {status}")
+    store.request_cancel(args.run)
+    log_for(store, args.run).emit("instruction_confirmed", change="stop", confirmed_by_user=True)
+    return {"status": "STOP_REQUESTED", "note": "The run stops before its next model call."}
+
+
+def _dashboard(args, config, store) -> dict:
+    run_dir = store.run_dir(args.run)
+
+    def refresh() -> Path:
+        state = store.load(args.run)
+        return write_dashboard(state, run_dir, live_claims(state, config))
+
+    path = refresh()
+    print(f"dashboard: {path}", file=sys.stderr, flush=True)
+    deadline = time.monotonic() + WATCH_LIMIT_SECONDS
+    while args.watch and store.load(args.run).status == "OPEN" and time.monotonic() < deadline:
+        time.sleep(REFRESH_SECONDS)
+        refresh()
+    return {"dashboard": str(path)}
+
+
+def _eval(args, config, store) -> dict:
+    report = run_arm(config, load_cases(Path(args.cases)), store)
+    if args.baseline:
+        baseline = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
+        report["control_passes"] = control_passes(baseline, report)
+    return report
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="quorum-run")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -84,6 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     start.add_argument("--host-seats", type=int, default=0)
     start.add_argument("--epic", default="general")
     start.add_argument("--option", action="append", default=[])
+    start.add_argument("--ratify", action="store_true")
     start.set_defaults(handler=_start)
     record = commands.add_parser("record")
     for name in ("--run", "--seat", "--prompt-hash", "--file"):
@@ -99,6 +151,22 @@ def _parser() -> argparse.ArgumentParser:
     finish = commands.add_parser("finish")
     finish.add_argument("--run", required=True)
     finish.set_defaults(handler=_finish)
+    note = commands.add_parser("note")
+    note.add_argument("--run", required=True)
+    note.add_argument("--text", required=True)
+    note.set_defaults(handler=_note)
+    stop = commands.add_parser("stop")
+    stop.add_argument("--run", required=True)
+    stop.add_argument("--yes", action="store_true")
+    stop.set_defaults(handler=_stop)
+    dashboard = commands.add_parser("dashboard")
+    dashboard.add_argument("--run", required=True)
+    dashboard.add_argument("--watch", action="store_true")
+    dashboard.set_defaults(handler=_dashboard)
+    evaluate = commands.add_parser("eval")
+    evaluate.add_argument("--cases", required=True)
+    evaluate.add_argument("--baseline")
+    evaluate.set_defaults(handler=_eval)
     return parser
 
 

@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+from .config import Config
+from .conclude import finish_run
+from .decision import UNRESOLVED, normalize_option
+from .diversity import DiversityError
+from .run import start_run
+from .runstate import RunState, RunStore
+from .usage import total_tokens
 
 
 def recall(expected: set[str], found: set[str]) -> float:
@@ -24,4 +35,44 @@ def flip_rate(verdict_for_order: Callable[[bool], str], repeats: int) -> float:
 
 def control_passes(baseline: dict[str, float], candidate: dict[str, float]) -> bool:
     """Accept a control only when recall holds and cost falls."""
-    return candidate["recall"] >= baseline["recall"] and candidate["cost"] < baseline["cost"]
+    holds_recall = candidate["recall"] > 0 and candidate["recall"] >= baseline["recall"]
+    return holds_recall and candidate["cost"] < baseline["cost"]
+
+
+@dataclass(frozen=True)
+class EvalCase:
+    question: str
+    expected: str
+    options: tuple[str, ...] = ()
+
+
+def load_cases(path: Path) -> list[EvalCase]:
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [EvalCase(r["question"], r["expected"], tuple(r.get("options", ()))) for r in rows]
+
+
+def _verdict_of(config: Config, case: EvalCase, store: RunStore) -> tuple[str, int]:
+    state = start_run(config, case.question, store, options=list(case.options))
+    if not isinstance(state, RunState):
+        return "ASKED", 0
+    try:
+        brief = finish_run(state, config, store)
+    except DiversityError:
+        return "FAILED_DIVERSITY", total_tokens(state)
+    return brief.splitlines()[0].removeprefix("# Decision: "), total_tokens(state)
+
+
+def _expected_verdict(case: EvalCase) -> str:
+    return UNRESOLVED if case.expected == UNRESOLVED else normalize_option(case.expected)
+
+
+def run_arm(config: Config, cases: list[EvalCase], store: RunStore) -> dict[str, float]:
+    """Score one configuration. Cost is tokens, so arms compare without prices."""
+    if not cases:
+        raise ValueError("eval needs at least one case")
+    correct, tokens = 0, 0
+    for case in cases:
+        verdict, used = _verdict_of(config, case, store)
+        correct += verdict == _expected_verdict(case)
+        tokens += used
+    return {"recall": correct / len(cases), "cost": float(tokens)}

@@ -15,6 +15,8 @@ _REFERENT = re.compile(r"(?i)^\s*(fix|do|change|review|improve)\s+(it|this|that)
 _HIGH_STAKES = re.compile(
     r"(?i)\b(irreversible|production|delete|migrat\w*|legal|medical|patient|security|acquire|hire|fire|public release|contract)\b"
 )
+_ARCHITECTURE = re.compile(r"(?i)\b(architecture|system design|database|schema|trade-?offs?|microservices?|monolith)\b")
+_CODE = re.compile(r"(?i)\b(bug|refactor|function|implement|unit test|code|stack trace)\b")
 _LOW_STAKES = re.compile(r"(?i)\b(rename|naming|draft|prototype|experiment|reversible|internal note)\b")
 
 
@@ -24,6 +26,14 @@ class IntentResult:
     questions: tuple[str, ...]
     assumptions: tuple[str, ...]
     stakes: str
+    role: str = "research"
+
+
+def classify_role(question: str) -> str:
+    """Choose the panel role, so routing can use evidence for that kind of work."""
+    if _ARCHITECTURE.search(question):
+        return "architecture"
+    return "code" if _CODE.search(question) else "research"
 
 
 def classify_stakes(question: str) -> str:
@@ -42,8 +52,9 @@ def assess_intent(question: str) -> IntentResult:
     if question.count("?") > 1:
         prompts.append("Which single question should this run answer first?")
     stakes = classify_stakes(question)
+    role = classify_role(question)
     if len(prompts) >= ASK_THRESHOLD:
-        return IntentResult("ask", tuple(prompts[:4]), (), stakes)
+        return IntentResult("ask", tuple(prompts[:4]), (), stakes, role)
     if prompts:
-        return IntentResult("assume", (), (f"Unanswered: {prompts[0]}",), stakes)
-    return IntentResult("proceed", (), (), stakes)
+        return IntentResult("assume", (), (f"Unanswered: {prompts[0]}",), stakes, role)
+    return IntentResult("proceed", (), (), stakes, role)

@@ -33,3 +33,7 @@ def usage_report(state: RunState) -> dict:
     report["cost"] = f"${cost:.4f}" + ("" if is_cost_complete else " plus unpriced or estimated usage")
     report["token counts"] = "include estimates" if has_estimates else "provider reported"
     return report
+
+
+def total_tokens(state: RunState) -> int:
+    return sum(row["tokens_in"] + row["tokens_out"] for row in state.usage)

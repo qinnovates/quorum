@@ -3,7 +3,7 @@ name: quorum
 description: "Quorum: multi-agent intelligence for any question. SMEs debate, challenge, and converge — supervisor delivers what survived scrutiny. Research-backed agent composition."
 argument-hint: '"your question" [--max] [--ratify] [--linear] [--set N] [--artifact PATH] [--no-web] [--ponder] [--dry-run] [--diverse] [--no-diverse]'
 disable-model-invocation: false
-version: 7.4.1
+version: 7.5.0
 author: Kevin Qi (qinnovate.com)
 homepage: https://qinnovate.com
 allowed-tools:
@@ -399,7 +399,7 @@ If `quorum-run` is on PATH and a config exists, use it for `--diverse` runs. Pyt
 6. Run `quorum-run challenge --run <id>`, give each host subagent the returned `prompt` with no tools, save its reply to a file, and run `quorum-run record-challenge --run <id> --file <path>`.
 7. Run `quorum-run finish --run <id>` and show the returned `brief` verbatim. If it fails with `FAILED_DIVERSITY`, report that and stop.
 
-Never edit run state or choose the verdict yourself. Add `Bash(quorum-run:*)` to allowed tools to enable this flow.
+If the user asks to watch, run `quorum-run dashboard --run <id>`. Pass `--ratify` to `start` when `--ratify` is set. Never edit run state or choose the verdict yourself. Add `Bash(quorum-run:*)` to allowed tools to enable this flow.
 
 ## Multi-Model Diversity (--diverse)
 

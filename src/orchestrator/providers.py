@@ -111,6 +111,17 @@ def _failed(
     )
 
 
+def safe_complete(provider: Provider, prompt: str, max_output_tokens: int) -> Result:
+    """A provider defect becomes a failed result, so paid work is not lost."""
+    try:
+        return provider.complete(prompt, max_output_tokens=max_output_tokens)
+    except Exception as exc:  # any adapter defect must become a recorded failure
+        return Result(
+            "", provider.family, provider.model_id, ok=False, usage_known=False,
+            error=f"{provider.name}: {type(exc).__name__}",
+        )
+
+
 def _token_count(value: object) -> int:
     """Provider usage is untrusted input: bad values count as unknown."""
     return value if isinstance(value, int) and value >= 0 else 0

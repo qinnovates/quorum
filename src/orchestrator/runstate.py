@@ -49,6 +49,8 @@ class RunState:
     options: list[str] = field(default_factory=list)
     host_disputes: list[str] = field(default_factory=list)
     host_challenges_recorded: int = 0
+    ratify: bool = False
+    judge: dict = field(default_factory=dict)
     brief: str = ""
 
 
@@ -77,6 +79,13 @@ class RunStore:
         with open(self.run_dir(run_id) / "lock", "w", encoding="utf-8") as handle:
             fcntl.flock(handle, fcntl.LOCK_EX)
             yield
+
+    def request_cancel(self, run_id: str) -> None:
+        """Works during `finish`: it takes no lock, and calls check it."""
+        (self.run_dir(run_id) / "cancel").touch(mode=0o600)
+
+    def is_cancel_requested(self, run_id: str) -> bool:
+        return (self.run_dir(run_id) / "cancel").exists()
 
     def save(self, state: RunState) -> None:
         target = self.run_dir(state.run_id) / "state.json"
