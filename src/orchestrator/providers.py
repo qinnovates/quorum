@@ -153,20 +153,17 @@ class CliProvider:
     env_passthrough: tuple[str, ...] = ()
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run
 
+    def _run_child(self, prompt: str) -> subprocess.CompletedProcess:
+        with tempfile.TemporaryDirectory(prefix="quorum-seat-") as empty_workdir:
+            return self.runner(
+                self.command, input=prompt, env=child_env(self.env_passthrough), cwd=empty_workdir,
+                capture_output=True, text=True, timeout=self.timeout_s, check=False,
+            )
+
     def complete(self, prompt, *, max_output_tokens, output_schema=None):
         started = time.monotonic()
         try:
-            with tempfile.TemporaryDirectory(prefix="quorum-seat-") as empty_workdir:
-                proc = self.runner(
-                    self.command,
-                    input=prompt,
-                    env=child_env(self.env_passthrough),
-                    cwd=empty_workdir,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.timeout_s,
-                    check=False,
-                )
+            proc = self._run_child(prompt)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return _failed(self.name, self.family, self.model_id, str(exc), started)
         known = [os.environ[name] for name in self.env_passthrough if name in os.environ]
@@ -181,13 +178,8 @@ class CliProvider:
         if not text:
             return _failed(self.name, self.family, self.model_id, "empty response", started)
         return Result(
-            text=text,
-            family=self.family,
-            model_id=self.model_id,
-            tokens_in=estimate_tokens(prompt),
-            tokens_out=estimate_tokens(raw_output),
-            latency_s=time.monotonic() - started,
-            usage_known=False,
+            text, self.family, self.model_id, estimate_tokens(prompt), estimate_tokens(raw_output),
+            latency_s=time.monotonic() - started, usage_known=False,
         )
 
 
@@ -244,8 +236,7 @@ class OpenAICompatibleProvider:
     capabilities: frozenset[str] = frozenset({"json_schema"})
     transport: Callable[[str, dict, float], dict] = post_json
 
-    def complete(self, prompt, *, max_output_tokens, output_schema=None):
-        started = time.monotonic()
+    def _send(self, prompt: str, max_output_tokens: int, output_schema: dict | None) -> dict:
         body = {
             "model": self.model_id,
             "messages": [{"role": "user", "content": prompt}],
@@ -253,13 +244,26 @@ class OpenAICompatibleProvider:
         }
         if output_schema is not None:
             body["response_format"] = {"type": "json_object"}
+        headers = {"Authorization": f"Bearer {self.api_key.reveal()}"} if self.api_key else {}
+        return self.transport(f"{self.base_url.rstrip('/')}/chat/completions", body, self.timeout_s, headers)
+
+    def _answer(self, prompt: str, text: str, data: dict, started: float) -> Result:
+        known = self.api_key.known_values() if self.api_key else ()
+        usage = data.get("usage")
+        usage = usage if isinstance(usage, dict) else {}
+        reported_in = _token_count(usage.get("prompt_tokens"))
+        reported_out = _token_count(usage.get("completion_tokens"))
+        clean = redact(text, known)
+        return Result(
+            clean, self.family, self.model_id, reported_in or estimate_tokens(prompt),
+            reported_out or estimate_tokens(clean), latency_s=time.monotonic() - started,
+            usage_known=bool(reported_in and reported_out),
+        )
+
+    def complete(self, prompt, *, max_output_tokens, output_schema=None):
+        started = time.monotonic()
         try:
-            headers = (
-                {"Authorization": f"Bearer {self.api_key.reveal()}"} if self.api_key else {}
-            )
-            data = self.transport(
-                f"{self.base_url.rstrip('/')}/chat/completions", body, self.timeout_s, headers
-            )
+            data = self._send(prompt, max_output_tokens, output_schema)
             text = _usable_text(data["choices"][0]["message"]["content"])
         except SecretUnavailable as exc:
             return _failed(self.name, self.family, self.model_id, str(exc), started)
@@ -273,18 +277,4 @@ class OpenAICompatibleProvider:
             return _failed(self.name, self.family, self.model_id, str(exc), started, known)
         if text is None:
             return _failed(self.name, self.family, self.model_id, "empty response", started)
-        known = self.api_key.known_values() if self.api_key else ()
-        text = redact(text, known)
-        usage = data.get("usage")
-        usage = usage if isinstance(usage, dict) else {}
-        reported_in = _token_count(usage.get("prompt_tokens"))
-        reported_out = _token_count(usage.get("completion_tokens"))
-        return Result(
-            text=text,
-            family=self.family,
-            model_id=self.model_id,
-            tokens_in=reported_in or estimate_tokens(prompt),
-            tokens_out=reported_out or estimate_tokens(text),
-            latency_s=time.monotonic() - started,
-            usage_known=bool(reported_in and reported_out),
-        )
+        return self._answer(prompt, text, data, started)

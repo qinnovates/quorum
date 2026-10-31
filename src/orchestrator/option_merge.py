@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 
 from .config import Config
-from .decision import normalize_option
+from .decision import embedded_json, normalize_option
 from .providers import estimate_tokens, safe_complete
 from .limits import PhaseBudgets
 from .runstate import RunState
@@ -25,7 +25,8 @@ GROUP_FORMAT = 'Return only JSON: {"groups": [["name one", "name two"]]}. Group 
 
 def _same_word(first: str, second: str) -> bool:
     short, long = sorted((first, second), key=len)
-    is_variant = long.startswith(short) and len(long) - len(short) <= MAX_SUFFIX_CHARS
+    suffix = long[len(short):]
+    is_variant = long.startswith(short) and len(suffix) <= MAX_SUFFIX_CHARS and suffix.isalpha()
     return first == second or (len(short) >= MIN_PREFIX_CHARS and is_variant)
 
 
@@ -61,6 +62,6 @@ def canonical_names(config: Config, state: RunState) -> dict[str, str]:
     result = safe_complete(provider, prompt, PM_OUTPUT_TOKENS)
     charge_usage(state, config, "challenge", "pm", result)
     try:
-        return apply_groups(json.loads(result.text).get("groups"), names) if result.ok else {}
+        return apply_groups(embedded_json(result.text).get("groups"), names) if result.ok else {}
     except (ValueError, AttributeError):
         return {}

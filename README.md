@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.7.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.8.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -27,6 +27,32 @@ The result: answers that have been **questioned, attacked, defended, and validat
 Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
+
+## What's New in 7.8.0: Evidence You Can Trace
+
+Earlier handoffs could change what a claim meant, and a verdict could look better supported than it was. This release keeps meaning intact, counts sources honestly and records where each claim came from.
+
+| Feature | What it does | Why |
+|---|---|---|
+| Meaning-safe claim IDs | IDs keep numbers, signs, comparators and units, so "> 5 ms" and "< 5 ms" stay separate claims | Opposite claims were being merged |
+| Marked cuts | Claims travel whole up to 600 characters. A longer claim is marked `partial`, and reviewers are told not to infer what is missing. Reviewers see every claim sent for review, and the brief reports claims and sources over a run limit | A cut can remove a condition such as "unless TLS is disabled" |
+| Quote support checks | A found quote must also fit the claim's numbers, comparators, direction, negation and topic, at no token cost. Words around each use of the quote count, so a plain "did not show that X" is caught | Finding a quote does not show it supports the claim |
+| Document counting | Each family and each document counts once. Three models citing one page count as one cited document. So do common URL variants, arXiv and DOI forms, and near-identical quotes that passed their checks on two pages behind one option. A different quote can still keep two copied pages apart | Agreement on one source is not corroboration |
+| Checked-source rule | With source checking on, a verdict needs at least one source Quorum actually reached, and STRONG needs a located, fitting quote, even on a source you listed as verified | An invented URL or a skipped quote should not help carry a verdict |
+| Source snapshots | The run record stores a hash of the page as fetched, the retrieval time and the quote position | The record shows what was checked. Comparing later needs a new fetch, and dynamic pages will differ |
+| Lineage | Each claim and verdict is a hash node that names its parents, a claim with a located quote links to its source snapshot, and each handoff commits to the claims it sent. `quorum-run lineage --run <id>` lists claims, and `--claim <id>` traces one. `quorum-run verify` checks every link | "Where did this come from?" should have a checkable answer |
+| Evidence parts in the brief | Shows cited documents, how many were checked, families, tiers, disputes and failed checks for each option, with no single percentage | One number would be false precision until it is calibrated |
+| Optional cross-family entailment | A neutral family, or a rival if none exists, checks whether the quote supports each quoted verdict-flipping claim. With no such family, the claim loses its top tier. Off by default. Set `entailment = true` under `[verification]` | Semantic checks cost tokens, so they stay opt-in until an eval shows their value |
+| Harder failure handling | A crash or interrupt while weighing closes the run as `FAILED`. If a step is killed outright, the run refuses to continue instead of forking its record. Oversized answers and responses are refused, and every hostile page shape found in review now reads quickly | One bad answer should not lose a paid run or corrupt its record |
+
+**What changes for you:** verdicts can be stricter. If two families cite one unchecked document, that now counts once, so the run may end `UNRESOLVED` where it used to give a verdict. A quote that fails a check loses its top tier, even on a source you verified. If a check or objection changes the outcome, the run withholds its verdict.
+
+**Limits:**
+- The support checks are heuristics. They can flag a faithful paraphrase, and passing does not prove support. Paraphrase, spelled-out numbers and look-alike letters can get past them.
+- Document counting cannot catch every disguise. With source checking off, an invented URL still counts as a weak cited document, and the brief says citations were not checked. Turn checking on for decisions that matter.
+- Two pages that differ only by query string count as one document.
+- Lineage shows where a claim came from, not that it is true. A reachable source can still be wrong.
+- Entailment has not been run with a live model. Its token cost and catch rate are unmeasured. A hostile checker can force `UNRESOLVED`, but it cannot create or flip a verdict.
 
 ## What's New in 7.7.0: Smaller Handoffs and a Checkable Run Record
 
@@ -90,9 +116,9 @@ graph TD
     PLAN --> P1["Independent answers<br/><i>same question, no shared answers</i>"]
     P1 --> GATE{"Family floor<br/><i>enough families?</i>"}
     GATE -->|"No"| FAIL["FAILED_DIVERSITY<br/><i>run stops</i>"]
-    GATE -->|"Yes"| SRC["Source check<br/><i>if you turn it on</i>"]
+    GATE -->|"Yes"| SRC["Source and quote checks<br/><i>if you turn them on</i>"]
     SRC --> CH["Challenge round<br/><i>only claims that could flip the verdict</i>"]
-    CH --> W["Evidence weighting<br/><i>each family counts once</i>"]
+    CH --> W["Evidence weighting<br/><i>each family and source counts once</i>"]
     W --> TRIG{"Verdict, with high<br/>stakes or a trigger?"}
     TRIG -->|"Yes"| J["Final judge<br/><i>can withhold, cannot choose</i>"]
     TRIG -->|"No"| B["Decision Brief"]
@@ -113,6 +139,30 @@ graph TD
     style J fill:#2B86C5,stroke:#1A6B9E,color:#fff
     style B fill:#00E5FF,stroke:#0097A7,color:#000
     style OUT fill:#00E5FF,stroke:#0097A7,color:#000
+```
+
+### How evidence is traced
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#2B86C5', 'background': '#0d1117'}}}%%
+graph LR
+    S["Source snapshot<br/><i>page hash, time, quote position</i>"] --> C["Claim<br/><i>ID assigned by Python</i>"]
+    C --> K{"Support checks<br/><i>numbers, negation, topic</i>"}
+    K -->|"Pass"| T["Keeps its tier"]
+    K -->|"Fail"| L["Tier lowered"]
+    T --> V["Verdict<br/><i>links to its claims</i>"]
+    L --> V
+    C --> H["Handoff<br/><i>commits to what was sent</i>"]
+    V --> Q["quorum-run verify<br/>quorum-run lineage"]
+
+    style S fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style C fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style K fill:#E040FB,stroke:#AB00D9,color:#fff
+    style T fill:#2B86C5,stroke:#1A6B9E,color:#fff
+    style L fill:#FF3CAC,stroke:#D4006A,color:#fff
+    style H fill:#784BA0,stroke:#5C3D8F,color:#fff
+    style V fill:#00E5FF,stroke:#0097A7,color:#000
+    style Q fill:#00E5FF,stroke:#0097A7,color:#000
 ```
 
 ### How tokens and models are chosen
@@ -201,6 +251,29 @@ From "Build X" to a battle-tested PRD. One command. The decision to run it unatt
 [Full hackathon docs →](#hackathon-mode-auto-detected)
 
 ---
+
+## Roadmap: Ideas Under Research
+
+These are ideas, not features. None is built, and each needs evidence before it enters a release.
+
+**Verifiable KV-cache handoffs.** [Swarm Telepathy](https://arxiv.org/abs/2610.15095) (MIT CSAIL and MIT-IBM, preprint) reports passing a model's internal state between model families, with better scores and speed than text in its tests. Quorum could gain from this between trusted local models. The open question is how to know the inherited context is accurate and has not been compromised.
+
+- **Design rule:** the cache is a hint, never evidence. Text stays the record, and every consequential output must trace to readable sources without relying on the cache.
+- **Why hashes are not enough:** a hash shows a cache did not change. It cannot show what the cache contains, and a cache can carry more than its visible text.
+- **Fidelity checks to test:** recomputing the cache within a tolerance, sampled audits, and probing what the receiver actually learned. Related work: [TAO](https://arxiv.org/abs/2510.16028), [DiFR](https://arxiv.org/abs/2511.20621) and [Seal, Then Sample](https://arxiv.org/abs/2609.27367).
+- **Known risks:** biased omission that readable checks cannot see, secrets surviving translation, and [prompt leakage through shared caches](https://ndss-symposium.org/ndss-paper/i-know-what-you-asked-prompt-leakage-via-kv-cache-sharing-in-multi-tenant-llm-serving).
+- **Limits on use:** one trust boundary, per-tenant isolation, text as the fallback, and never for independent first opinions.
+- **Before any build:** measure bytes against text, decay over repeated handoffs, and whether canary secrets and injected instructions survive. Hosted APIs do not appear to expose KV caches, so this applies to local models first.
+
+**Calibrated confidence.** Combine source quality, corroboration and contradictions into one score, but only after it is calibrated on labelled runs. Quorum already has a Brier score function to measure this.
+
+**Eval for entailment.** Measure how many bad citations the cross-family check catches and what that costs. Turn it on by default only if the numbers justify it.
+
+**Cross-run knowledge.** Reuse verified claims and entailment results across runs to save tokens. Reused claims must keep their origin and be checked again, because [lost origin is how poisoned content turns trusted](https://arxiv.org/abs/2605.22842).
+
+**Deeper copy detection.** Find sources that copy each other beyond exact quotes, following [source dependence research](https://lunadong.com/publication/dependence_vldb.pdf), which shows why majority votes fail when sources are not independent.
+
+**Lineage search.** Add a rebuildable SQLite index if lineage queries outgrow the JSONL record. A graph database is not justified at the size of a run.
 
 ## Documentation
 

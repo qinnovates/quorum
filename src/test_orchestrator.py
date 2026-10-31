@@ -140,8 +140,8 @@ class TestHandoff:
     def test_summary_and_text_are_capped(self):
         long = "x" * 1000
         payload = build_handoff([claim(long)], "r", open_questions=[], debate_summary=long)
-        assert len(payload["claims"][0]["text"]) == 240
-        assert len(payload["debate_summary"]) == 400
+        assert len(payload["claims"][0]["text"]) == 600 and payload["claims"][0]["partial"] is True
+        assert len(payload["debate_summary"]) == 400 and payload["debate_summary_partial"] is True
 
 
 # --- R6: routing and escalation ----------------------------------------------

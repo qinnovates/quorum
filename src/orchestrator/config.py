@@ -136,6 +136,7 @@ class Config:
     role_bars: dict[str, float] = field(default_factory=dict)
     verified_sources: frozenset[str] = frozenset()
     should_fetch_sources: bool = False
+    should_check_entailment: bool = False
     allowed_source_hosts: frozenset[str] = frozenset()
     phase_shares: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_PHASE_SHARES))
     pricing: dict[str, Price] = field(default_factory=dict)
@@ -144,118 +145,107 @@ class Config:
     candidates: list[Candidate] = field(default_factory=list)
 
 
+def _cli_provider(name: str, spec: dict, declared_family: str | None, caps: frozenset[str]) -> Provider:
+    command = list(spec["command"])
+    if any("{prompt}" in part for part in command):
+        raise ConfigError(f"providers.{name}.command must not contain {{prompt}}; prompts go over stdin")
+    binary, family = CLI_BINARY_FAMILIES[spec["type"]]
+    _validate_binary(name, command, frozenset({binary}), "command")
+    _reject_unsafe_flags(name, command)
+    if declared_family not in (None, family):
+        raise ConfigError(f"providers.{name}: a {binary} command is family {family}")
+    return CliProvider(
+        name=name, family=family, command=_with_model_flag(command, binary, str(spec["model"])),
+        env_passthrough=tuple(spec.get("env_passthrough", ())), model_id=spec["model"],
+        timeout_s=float(spec.get("timeout_s", 300)), capabilities=caps or frozenset({"web"}),
+    )
+
+
+def _ollama_provider(name: str, spec: dict, caps: frozenset[str]) -> Provider:
+    return OllamaProvider(
+        name=name, model_id=spec["model"], family=spec.get("family", "ollama"),
+        base_url=_validate_base_url(name, spec.get("base_url", "http://localhost:11434")),
+        timeout_s=float(spec.get("timeout_s", 120)), capabilities=caps or frozenset({"json_schema"}),
+    )
+
+
+def _compatible_provider(name: str, spec: dict, caps: frozenset[str]) -> Provider:
+    return OpenAICompatibleProvider(
+        name=name, model_id=spec["model"], base_url=_validate_base_url(name, spec["base_url"]),
+        api_key=_credential(name, spec), family=spec.get("family", "other"),
+        timeout_s=float(spec.get("timeout_s", 120)), capabilities=caps or frozenset({"json_schema"}),
+    )
+
+
 def _build_provider(name: str, spec: dict) -> Provider:
     _reject_literal_credentials(name, spec)
     kind = spec["type"]
     declared_family = spec.get("family")
     if declared_family is not None and declared_family not in Families:
-        raise ValueError(
-            f"provider {name!r}: unknown family {declared_family!r}; use one of {sorted(Families)}"
-        )
+        raise ValueError(f"provider {name!r}: unknown family {declared_family!r}; use one of {sorted(Families)}")
     caps = frozenset(spec.get("capabilities", []))
     if kind in CLI_BINARY_FAMILIES:
-        command = list(spec["command"])
-        if any("{prompt}" in part for part in command):
-            raise ConfigError(
-                f"providers.{name}.command must not contain {{prompt}}; prompts go over stdin"
-            )
-        binary, family = CLI_BINARY_FAMILIES[kind]
-        _validate_binary(name, command, frozenset({binary}), "command")
-        _reject_unsafe_flags(name, command)
-        command = _with_model_flag(command, binary, str(spec["model"]))
-        if declared_family not in (None, family):
-            raise ConfigError(f"providers.{name}: a {binary} command is family {family}")
-        return CliProvider(
-            name=name,
-            family=family,
-            command=command,
-            env_passthrough=tuple(spec.get("env_passthrough", ())),
-            model_id=spec["model"],
-            timeout_s=float(spec.get("timeout_s", 300)),
-            capabilities=caps or frozenset({"web"}),
-        )
+        return _cli_provider(name, spec, declared_family, caps)
     if kind == "ollama":
-        return OllamaProvider(
-            name=name,
-            model_id=spec["model"],
-            family=spec.get("family", "ollama"),
-            base_url=_validate_base_url(name, spec.get("base_url", "http://localhost:11434")),
-            timeout_s=float(spec.get("timeout_s", 120)),
-            capabilities=caps or frozenset({"json_schema"}),
-        )
+        return _ollama_provider(name, spec, caps)
     if kind == "openai_compatible":
-        return OpenAICompatibleProvider(
-            name=name,
-            model_id=spec["model"],
-            base_url=_validate_base_url(name, spec["base_url"]),
-            api_key=_credential(name, spec),
-            family=spec.get("family", "other"),
-            timeout_s=float(spec.get("timeout_s", 120)),
-            capabilities=caps or frozenset({"json_schema"}),
-        )
+        return _compatible_provider(name, spec, caps)
     raise ValueError(f"unknown provider type {kind!r} for {name!r}")
 
 
-def load(path: str | Path, *, trusted: bool = False) -> Config:
-    """Load config. Only pass `trusted=True` for the user's own config file."""
-    data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
-
+def _min_families(data: dict, trusted: bool) -> int:
     if not trusted:
         for section in data.keys() - UNTRUSTED_SECTIONS:
             raise ConfigError(
                 f"{section} is only read from user config; "
                 "a project file may only tighten [panel] and [limits]"
             )
-    panel = data.get("panel", {})
-    min_families = int(panel.get("min_families", DEFAULT_MIN_FAMILIES))
+    min_families = int(data.get("panel", {}).get("min_families", DEFAULT_MIN_FAMILIES))
     if min_families < 1:
         raise ValueError("panel.min_families must be at least 1")
-
     if not trusted and min_families < DEFAULT_MIN_FAMILIES:
         raise ConfigError(
             f"panel.min_families below {DEFAULT_MIN_FAMILIES} is only read from user config; "
             "a cloned repo may tighten the floor, not lower it"
         )
+    return min_families
 
-    limits_data = data.get("limits", {})
-    limits = RunLimits(**{k: int(v) for k, v in limits_data.items()})
 
-    pricing = {
-        model: Price(float(p["input_per_mtok"]), float(p["output_per_mtok"]))
-        for model, p in data.get("pricing", {}).items()
-    }
+def _add_providers(config: Config, specs: dict) -> None:
+    for name, spec in specs.items():
+        provider = _build_provider(name, spec)
+        config.providers[name] = provider
+        config.candidates.append(Candidate(
+            name=name, family=provider.family, capabilities=provider.capabilities,
+            rank=int(spec.get("rank", 100)), model_id=provider.model_id, strength=int(spec.get("strength", 0)),
+        ))
 
+
+def load(path: str | Path, *, trusted: bool = False) -> Config:
+    """Load config. Only pass `trusted=True` for the user's own config file."""
+    data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
+    min_families = _min_families(data, trusted)
     floor = data.get("escalation", {}).get("confidence_floor")
+    verification = data.get("verification", {})
     config = Config(
         min_families=min_families,
-        limits=limits,
-        pricing=pricing,
+        limits=RunLimits(**{k: int(v) for k, v in data.get("limits", {}).items()}),
+        pricing={
+            model: Price(float(p["input_per_mtok"]), float(p["output_per_mtok"]))
+            for model, p in data.get("pricing", {}).items()
+        },
         confidence_floor=None if floor is None else float(floor),
         pm_provider=data.get("pm", {}).get("provider"),
         evidence=[RoleEvidence(**row) for row in data.get("evidence", [])],
         role_bars={k: float(v) for k, v in data.get("role_bars", {}).items()},
         verified_sources=frozenset(str(s) for s in data.get("verified_sources", [])),
-        should_fetch_sources=data.get("verification", {}).get("fetch_sources") is True,
-        allowed_source_hosts=frozenset(
-            str(host).lower() for host in data.get("verification", {}).get("allowed_hosts", [])
-        ),
+        should_fetch_sources=verification.get("fetch_sources") is True,
+        should_check_entailment=verification.get("entailment") is True,
+        allowed_source_hosts=frozenset(str(host).lower() for host in verification.get("allowed_hosts", [])),
     )
     if "phase_shares" in data:
         config.phase_shares = {k: float(v) for k, v in data["phase_shares"].items()}
-
-    for name, spec in data.get("providers", {}).items():
-        provider = _build_provider(name, spec)
-        config.providers[name] = provider
-        config.candidates.append(
-            Candidate(
-                name=name,
-                family=provider.family,
-                capabilities=provider.capabilities,
-                rank=int(spec.get("rank", 100)),
-                model_id=provider.model_id,
-                strength=int(spec.get("strength", 0)),
-            )
-        )
+    _add_providers(config, data.get("providers", {}))
     return config
 
 

@@ -2,6 +2,28 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.8.0 — Evidence you can trace
+
+- **Meaning-safe claim IDs.** Normalization keeps symbols and units, and IDs grow to 64 bits. Why: "> 5 ms" and "< 5 ms" shared an ID and merged into one claim.
+- **Marked cuts.** Claims travel whole up to 600 characters, and longer ones are marked `partial`. Reviewers see every claim sent for review, and the brief reports claims and sources over a run limit. Why: a 240-character cut could drop a condition, and dropped evidence should be visible.
+- **Quote support checks.** Numbers, comparators, direction, negation and topic must fit the claim, including the words around each use of the quote. Pages are read with entities decoded. Why: a quote on a page does not show it supports the claim, and STRONG was too easy to earn.
+- **Document counting.** The best pairing of families to documents counts each once. URL variants, arXiv and DOI forms and near-identical passing quotes behind one option merge. Why: three models citing one page scored 3.0, as if independent. Runs can now end `UNRESOLVED` where they gave a verdict before.
+- **Checked-source rule.** With checking on, a verdict needs a source Quorum reached, and STRONG needs a located, fitting quote, even on a listed source. Why: an invented URL or a skipped quote should not help carry a verdict.
+- **Harder to dodge review.** A family's claims for one option are tested together, and a challenge round cut short by budget withholds the verdict. Why: adding a second claim used to hide the first from review.
+- **Fair source checks.** Each seat gets a share of the check limit. Why: one seat could crowd out a rival's sources.
+- **Source snapshots and lineage.** Page hash, retrieval time and quote position join the run record. Claims and verdicts are hash nodes, a claim with a located quote links to its snapshot, and each handoff commits to what it sent. `quorum-run verify` checks the links. Why: lineage should be checkable.
+- **`quorum-run lineage`.** Lists a run's claims or traces one. Options are now stored as hashes, so it shows hashes and labels only.
+- **Evidence parts in the brief.** Why: one percentage would be false precision until calibrated.
+- **Optional cross-family entailment.** Off by default, on verdict-flipping claims only, by a neutral family, or a rival if none exists. Any change to the outcome withholds the verdict. Why: semantic checks cost tokens, so they must earn their place in an eval.
+- **Handoff records fixed.** A handoff refused for budget is not recorded as sent, and a host challenge records what was issued. Why: the record must show what was actually sent.
+- **Failure handling.** A crash or interrupt while weighing closes the run as `FAILED`. A run whose record is ahead of its state, as after a kill, refuses to continue. Invalid unicode and deep JSON fail one answer. Oversized answers and responses are refused. `verify` waits up to 30 seconds for a running step. Why: one hostile answer could block a run or fork its record.
+- **Slow-input fixes.** A forward-only page scanner replaces regex parsing, spacing is folded before checks, and combining-mark runs are capped. Workers stop at the deadline, and a stuck fetch cannot hold the process. Why: a 500 KB page could outlast the 30-second deadline.
+- **Build output removed from git.** `build/` and `*.egg-info/` are now ignored.
+- **All functions in the orchestrator are now 30 lines or fewer.** `cli.py` commands are a table.
+- **README roadmap added**, including verifiable KV-cache handoffs as a research idea.
+- **Behaviour change:** with `fetch_sources` on, a listed verified source earns nothing until its quote is located, so a run whose only sources are outside `allowed_hosts` ends `UNRESOLVED`.
+- **Known limits:** the support checks are heuristics, lineage does not show truth, and entailment has not been run with a live model.
+
 ## v7.7.0 — Smaller handoffs and run record
 
 - **ID-based handoffs.** Compact claims with stable IDs, and each URL once. Why: agents should not pay to resend known text.

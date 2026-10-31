@@ -94,6 +94,8 @@ ROUTING_TEMPLATE = """
 # [verification]
 # fetch_sources = true
 # allowed_hosts = ["arxiv.org", "<a-site-you-trust>"]
+# Optional: a different model family checks that quotes support verdict-flipping claims.
+# entailment = true
 """
 
 

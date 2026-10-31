@@ -1,7 +1,0 @@
-Metadata-Version: 2.2
-Name: quorum-orchestrator
-Version: 7.6.0
-Summary: Model-agnostic orchestration for Quorum decision panels
-License: MIT
-Requires-Python: >=3.11
-License-File: LICENSE

@@ -18,13 +18,19 @@ from orchestrator.run import RunError, record_host_answer, start_run
 from orchestrator.runstate import RunStore
 from orchestrator.tasktrack import TaskTrack
 from datetime import date
+import itertools
 
 QUESTION = "For our API, which database is best given a $100 budget limit and uptime as the goal?"
 CANARY = "gh" + "p_" + "z9Y8" * 9
 
 
-def answer(option, source="https://example.org/a", text="Evidence favours this"):
-    return json.dumps({"option": option, "claims": [{"text": text, "source": source}], "would_change": "new data"})
+SOURCE_NUMBERS = itertools.count()
+
+
+def answer(option, source=None, text="Evidence favours this"):
+    """Each call cites its own document unless a test names one."""
+    cited = source or f"https://example.org/doc{next(SOURCE_NUMBERS)}"
+    return json.dumps({"option": option, "claims": [{"text": text, "source": cited}], "would_change": "new data"})
 
 
 def config_for(*providers, min_families=2):
@@ -129,7 +135,7 @@ class TestDecision:
 
     def test_persona_count_adds_no_weight(self):
         many = [self.claim("a", "claude", text=str(i)) for i in range(9)]
-        two = [self.claim("b", "gemini"), self.claim("b", "openai")]
+        two = [ScoredClaim("g", "x", "https://example.org/g", "MODERATE", "b", "gemini"), ScoredClaim("o", "x", "https://example.org/o", "MODERATE", "b", "openai")]
         assert build_brief(many + two, [], []).verdict == "b"
 
     def test_close_options_are_unresolved(self):

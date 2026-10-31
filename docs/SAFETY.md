@@ -184,6 +184,8 @@ Every finding gets an evidence tier:
 - **WEAK:** Blog post, forum discussion, single-source claim, undated or anonymous content
 - **UNVERIFIED:** Claim made without a locatable source -- **flagged in the report with a warning**
 
+In orchestrated runs, Python assigns tiers: a quote found on a checked page earns STRONG only if it also fits the claim's numbers, comparators, direction, negation and topic. These checks are heuristics that can only lower a tier, and a determined author can get past them. Each family and each document counts once when options are weighed, and any check that changes the outcome withholds the verdict.
+
 ### Layer 2: Cross-Agent Contradiction Check (Phase 2-3)
 
 The supervisor scans all agent reports for contradictions:
