@@ -870,3 +870,11 @@ def test_a_corrupt_task_list_cannot_lose_the_brief(store, content):
     config, state = host_run(store, {"gemini": one_claim("postgres", "https://a.example/1"), "openai": one_claim("postgres", "https://b.example/1")})
     (store.root / "tasks.json").write_text(content)
     assert finish_run(state, config, store).startswith("# Decision:")
+
+
+def test_an_answer_slightly_over_the_estimate_is_kept(store):
+    config, state = host_run(store, {
+        "gemini": one_claim("postgres", "https://a.example/1", "x" * 8_400),
+        "openai": one_claim("postgres", "https://b.example/1"),
+    })
+    assert all(s.status == "answered" for s in state.seats)

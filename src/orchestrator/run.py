@@ -31,6 +31,7 @@ from .usage import charge_usage
 HOST_FAMILY = "claude"
 STATUS_QUO_OPTION = "keep things as they are"
 MAX_HOST_SEATS = 1
+ESTIMATE_TOLERANCE = 2
 CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -140,8 +141,8 @@ def _settle(state: RunState, config: Config, seat: Seat, result: Result, log: Ev
     try:
         if not result.ok:
             raise AnswerError(result.error or "provider failed")
-        if estimate_tokens(result.text) > seat.max_output_tokens:
-            raise AnswerError(f"answer exceeds the {seat.max_output_tokens} token cap")
+        if estimate_tokens(result.text) > seat.max_output_tokens * ESTIMATE_TOLERANCE:
+            raise AnswerError(f"answer far exceeds the {seat.max_output_tokens} token cap")
         answer = parse_answer(redact(result.text))
         if state.options and normalize_option(answer["option"]) not in state.options:
             raise AnswerError("answer is not one of the listed options")
