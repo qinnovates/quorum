@@ -4,7 +4,7 @@
   <img alt="Quorum" src="docs/assets/header-dark.svg" width="700">
 </picture>
 
-[![Version](https://img.shields.io/badge/version-7.3.0-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
+[![Version](https://img.shields.io/badge/version-7.3.1-FF3CAC)](https://github.com/qinnovates/quorum/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-E040FB)](LICENSE) [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-784BA0)](https://claude.ai/code) [![Research-Backed](https://img.shields.io/badge/research--backed-10%2B_papers-2B86C5)](docs/ARCHITECTURE.md) [![Agents](https://img.shields.io/badge/agents-3_to_1000%2B-00E5FF)](docs/GUIDE.md)
 
 When you ask AI a question, you get one answer. It sounds confident. It might be completely wrong. You have no way to know.
 
@@ -608,7 +608,7 @@ graph LR
 
 > **Consent warning.** Auto mode means you are approving every edit and command in advance, not one at a time. Before you turn it on: read the PRD (`--ratify` exists for exactly this); work on a fresh branch or worktree with nothing uncommitted that you care about; keep the task list scoped to what you reviewed; and stay close enough to stop it (Esc). Quorum will never switch modes for you. The choice to run unattended is yours to make, every time.
 
-Earlier versions shipped a shell script (the "Ralph loop") that called `claude --print` in a loop with no approval step. It was removed in v7.4.0: Claude Code's permission modes do the same job, with the consent decision made explicitly by the user instead of by a script.
+Earlier versions shipped a shell script (the "Ralph loop") that called `claude --print` in a loop with no approval step. It was removed in v7.3.1: Claude Code's permission modes do the same job, with the consent decision made explicitly by the user instead of by a script.
 
 | | `/quorum "Build X"` | `/quorum "Build X" --max` |
 |--|---------------------|--------------------------|
@@ -667,6 +667,8 @@ graph TD
 
 ## Multi-Model Diversity (`--diverse`)
 
+> **Your data leaves your machine.** `--diverse`, and `--max` when the Gemini and Codex CLIs are available, send your question to Google and OpenAI. Artifacts are sent only if you approve. Quorum asks first, but that check is an instruction to the model, not enforced code. Do not use these modes with material you cannot share with those providers.
+
 All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what Claude *says*, not what Claude *believes*. On topics where Claude has strong RLHF-shaped priors, this creates an echo chamber — articulate consensus rather than genuine deliberation.
 
 `--diverse` breaks the single-model ceiling by replacing 2 agent slots with Gemini and Codex (OpenAI). Different training data, different RLHF, different blind spots.
@@ -684,7 +686,7 @@ All Quorum agents are Claude subagents. Cognitive Diversity Profiles change what
 
 ### How it works
 
-1. **Phase 0** — Pre-flight check: verify `gemini` and `codex` CLIs are authenticated. If either fails, fall back to all-Claude with a warning
+1. **Phase 0** — Pre-flight check: verify `gemini` and `codex` CLIs are authenticated. If both fail, the run stops with `FAILED_DIVERSITY`; re-run with `--no-diverse` to accept a single-model panel
 2. **Phase 1** — 3 Claude agents + 1 Gemini agent + 1 Codex agent work in parallel, independently. External models get generalist/outsider slots where different priors add the most value
 3. **Phase 2** — Claim pool entries are tagged with `model: claude|gemini|codex` for cross-model tracking
 4. **Phase 3** — Claude agents debate as normal. The supervisor explicitly surfaces external model claims for cross-review
@@ -808,6 +810,12 @@ Swarm reports add:
 - **Cascades** — Findings that changed the swarm's trajectory
 - **Coalition Map** — Which territory groups aligned on which recommendations
 - **Sentiment Trajectory** — How the swarm's collective position evolved across rounds
+
+## API Keys and Secrets
+
+**Never hardcode an API key.** Not in code, config, prompts, URLs, commits or command lines. Keep keys in a vault you own, such as your OS keychain, 1Password, HashiCorp Vault, a cloud secret manager or SOPS/age, and scope each key to the least it needs.
+
+Quorum does not need your API keys. The Gemini and Codex CLIs use their own login. If a key lands anywhere it should not, treat it as exposed and rotate it. Deleting it is not enough.
 
 ## Honest Limitations
 

@@ -4,6 +4,14 @@
 
 ---
 
+## Read This First: What Is and Is Not Enforced
+
+**Quorum v7.3.x is a prompt-driven skill. The protections in this document are instructions to the model unless stated otherwise. No code enforces them, and a model can fail to follow them.** That includes redaction, `--redact`, `--output` path checks, sentinel boundaries, injection detection, consent prompts and agent tool restrictions.
+
+Enforced by your host tool: the skill's `allowed-tools` list and your permission mode.
+
+Do not rely on Quorum as a security boundary for secrets or sensitive data. Keep credentials out of questions and artifacts, keep them in a vault you own, and never hardcode them. Use `--no-diverse` for material that must not reach third-party providers.
+
 ## 0. On Hallucination: Why No LLM Is Hallucination-Proof
 
 Quorum's 5-layer validation pipeline reduces hallucination. It does not eliminate it. No multi-agent architecture can, because hallucination is not a bug in the implementation — it is a structural property of how these systems work at every level, from the mathematics of token generation to the information-theoretic limits of learned representations.
