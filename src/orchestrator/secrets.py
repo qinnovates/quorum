@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 import subprocess
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 CMD_TIMEOUT_S = 15.0
+MAX_KEY_FILE_BYTES = 16_384
+UNSAFE_KEY_FILE_BITS = stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
 _MIN_KNOWN_SECRET_CHARS = 8
 
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -97,6 +100,36 @@ def from_env(name: str) -> Secret:
         return value
 
     return Secret(f"env:{name}", resolve)
+
+
+def _read_key_file(path: str) -> str:
+    """Check the opened file, not the path, so it cannot be swapped between check and read."""
+    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+    with os.fdopen(descriptor, "r", encoding="utf-8") as key_file:
+        info = os.fstat(key_file.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_KEY_FILE_BYTES:
+            raise SecretUnavailable(f"api_key_file {path} is not a small regular file")
+        if info.st_mode & UNSAFE_KEY_FILE_BITS:
+            raise SecretUnavailable(
+                f"api_key_file {path} is open to other users; set its mode to 0400 or 0440"
+            )
+        return key_file.read(MAX_KEY_FILE_BYTES).strip()
+
+
+def from_file(path: str) -> Secret:
+    """A secret mounted by the platform: Kubernetes, Docker, systemd or Vault Agent."""
+    def resolve() -> str:
+        try:
+            value = _read_key_file(path)
+        except (OSError, UnicodeDecodeError) as exc:
+            raise SecretUnavailable(
+                f"api_key_file {path} could not be read ({type(exc).__name__}); check the mount"
+            ) from None
+        if not value:
+            raise SecretUnavailable(f"api_key_file {path} is empty; check the mount")
+        return value
+
+    return Secret(f"file:{path}", resolve)
 
 
 def from_command(argv: list[str]) -> Secret:

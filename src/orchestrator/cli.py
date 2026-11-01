@@ -16,7 +16,7 @@ from pathlib import Path
 
 from .config import Config, ConfigError, load, tighten
 from .diversity import DiversityError
-from .doctor import remote_providers, run_doctor
+from .doctor import Check, remote_providers, run_doctor
 from .intent import IntentResult
 from .claim_gather import live_claims
 from .conclude import finish_run, issue_host_challenge, record_host_challenge
@@ -188,14 +188,24 @@ def _dashboard(args, config, store) -> dict:
     return {"dashboard": str(path)}
 
 
+def _live_targets(config: Config, allowed: list[str]) -> frozenset[str]:
+    """Local providers, plus remote ones the user named."""
+    local = set(config.providers) - set(remote_providers(config))
+    return frozenset(local | (set(allowed) & set(config.providers)))
+
+
+def _doctor_label(check: Check) -> str:
+    if check.is_advisory:
+        return "NOTE"
+    return "OK " if check.is_ok else "FIX"
+
+
 def _doctor(args, config, store) -> dict:
-    if args.live:
+    tested = _live_targets(config, args.allow_provider)
+    if args.live and not tested:
         _require_consent(config, args.allow_provider)
-    lines = [
-        f"{'OK ' if check.is_ok else 'FIX'} {check.name}: {check.detail}"
-        for check in run_doctor(config, live=args.live)
-    ]
-    return {"text": "\n".join(lines)}
+    checks = run_doctor(config, live=args.live, tested=tested)
+    return {"text": "\n".join(f"{_doctor_label(check)} {check.name}: {check.detail}" for check in checks)}
 
 
 def _verify(args, config, store) -> dict:

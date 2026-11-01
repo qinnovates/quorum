@@ -11,10 +11,12 @@ tests run offline. Live use needs the real service.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Iterable, Protocol
 
 from .http_transport import post_json
@@ -27,6 +29,8 @@ Families = frozenset(
 # They can answer, but they cannot satisfy the diversity floor.
 UNATTRIBUTED_FAMILIES = frozenset({"ollama", "other"})
 CHARS_PER_TOKEN_ESTIMATE = 4
+ERROR_TAIL_CHARS = 600
+_ERROR_LINE = re.compile(r"(?i)\b(error|fatal|failed|denied|unauthori[sz]ed)\b")
 OLLAMA_KEEP_ALIVE = "10m"
 CHILD_ENV_ALLOWLIST = ("PATH", "HOME", "LANG", "TERM")
 
@@ -135,6 +139,14 @@ def _usable_text(content: object) -> str | None:
     return None
 
 
+def _stderr_summary(stderr: str) -> str:
+    """The lines stating the failure. CLIs put banners first and stack traces or noise last."""
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    failures = list(dict.fromkeys(line for line in lines if _ERROR_LINE.search(line)))
+    summary = "\n".join(failures or lines)[-ERROR_TAIL_CHARS:]
+    return summary.replace(str(Path.home()), "~")
+
+
 @dataclass
 class CliProvider:
     """A panelist reached through a command-line tool (gemini, codex).
@@ -170,7 +182,7 @@ class CliProvider:
         if proc.returncode != 0:
             return _failed(
                 self.name, self.family, self.model_id,
-                redact(proc.stderr or "", known).strip()[:300] or f"exit {proc.returncode}",
+                redact(_stderr_summary(proc.stderr or ""), known) or f"exit {proc.returncode}",
                 started,
             )
         raw_output = proc.stdout.strip()

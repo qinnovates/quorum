@@ -28,6 +28,21 @@ Built by [qinnovate](https://qinnovate.com) | [Full docs](docs/ARCHITECTURE.md)
 
 ---
 
+## What's New in 7.9.0: Secure Templates for Your Own Setup
+
+Setting up Codex for real showed how a safe setup can still fail or stay exposed without anyone noticing: a tool reported "logged in" while every call failed, the error named the wrong fix, and login tokens sat in a plaintext file.
+
+| Feature | What it does | Why |
+|---|---|---|
+| [Integration templates](docs/INTEGRATIONS.md) | Picks the best option for your setup, with copy-ready blocks for Vault, Kubernetes, Docker, systemd, cloud secret managers, personal vaults and CLI sign-in | Your stack should decide how keys are stored, and the safest path should also be the easiest |
+| `api_key_file` | Reads a key from a file your platform mounts, and refuses a file others can read or write | Mounted secrets stay out of environment variables and process lists |
+| More vault commands | Adds `az`, `bw`, `pass` and `doppler` | Azure and common password managers needed a route. `kubectl` stays off the list on purpose |
+| Clearer `doctor` errors | Shows the real error, and separates a stale model from an expired login | "Log in" was the wrong advice for a model the account cannot use |
+| Login storage notice | Notes a CLI login kept in a plaintext file, and flags loose permissions. It reads only the file's mode | Plaintext tokens should not go unnoticed |
+| Test one provider | `doctor --live --allow-provider codex` tests only the providers you name | Testing one provider should not require consent for all of them |
+
+**Limits:** the templates are accepted by Quorum's checks, but only Codex sign-in and local Ollama have run live. A mounted file is plaintext to anything running as your user, so it is only as safe as the system that manages it.
+
 ## What's New in 7.8.0: Evidence You Can Trace
 
 Earlier handoffs could change what a claim meant, and a verdict could look better supported than it was. This release keeps meaning intact, counts sources honestly and records where each claim came from.
@@ -290,6 +305,7 @@ These are ideas, not features. None is built, and each needs evidence before it 
 - **[FAQ & Empirical Findings](docs/FAQ.md)** — Scale testing results, context/memory effects, statistical methodology for evaluating multi-agent debate
 - **[Prompt Templates](docs/PROMPTS.md)** — All agent templates with variable reference
 - **[Safety & Privacy](docs/SAFETY.md)** — Guardrails, privacy disclosure, tool permissions
+- **[Integration Templates](docs/INTEGRATIONS.md)** — Secure setups for Vault, Kubernetes, Docker, cloud secret managers, personal vaults and CLI sign-in
 - **[Privacy Policy](https://qinnovate.com/privacy)** — Full privacy policy for all qinnovate tools
 - **[Changelog](docs/CHANGELOG.md)** — Version history and what changed
 - **[Releases](https://github.com/qinnovates/quorum/releases)** — GitHub releases with download links
@@ -1196,7 +1212,9 @@ api_key_cmd = ["security", "find-generic-password", "-s", "quorum/byo", "-w"]
 rank = 3
 ```
 
-Allowed vault commands are `security`, `secret-tool`, `op`, `vault`, `sops`, `aws` and `gcloud`. You can use `api_key_env = "QUORUM_BYO_API_KEY"` instead if your vault injects environment variables.
+Allowed vault commands are `security`, `secret-tool`, `pass`, `op`, `bw`, `vault`, `doppler`, `sops`, `aws`, `gcloud` and `az`. Use `api_key_file = "/var/run/secrets/quorum/api-key"` for a secret your platform mounts, or `api_key_env = "QUORUM_BYO_API_KEY"` if your vault injects environment variables.
+
+**[Integration templates](docs/INTEGRATIONS.md):** copy-ready setups for HashiCorp Vault, Kubernetes, Docker, systemd, AWS, Google Cloud, Azure, 1Password, Bitwarden, the OS keychain, and hardened Codex and Gemini CLI sign-in, with a guide to picking the best option for your setup.
 
 Remote endpoints must use HTTPS. Redirects are refused. Use a dedicated, least-privilege key with a spending limit where your provider offers one.
 
@@ -1211,13 +1229,13 @@ Every integration is optional. `/quorum` works without any of them. Add one when
 | Integration | Connect it | Add to `~/.config/quorum/quorum.toml` |
 |---|---|---|
 | Gemini CLI | Run `gemini` and finish sign-in | `type = "gemini_cli"`, `model`, `command` as in `docs/quorum.example.toml` |
-| Codex CLI | Run `codex login` | `type = "codex_cli"`, `model`, `command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]` |
+| Codex CLI | Run `codex login`, with [keychain storage](docs/INTEGRATIONS.md#harden-codex) | `type = "codex_cli"`, `model = "default"`, `command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "-"]` |
 | Ollama | Run `ollama serve`, then `ollama pull <model>` | Option A above |
 | Any OpenAI-compatible API | Store your key in your vault | Option B above |
 
 To use a local model for neutral summaries, add `[pm]` with `provider = "<provider name>"`. It never judges, and it does not take a panel seat.
 
-**Test status:** these integrations are covered by automated tests with simulated providers. Quorum has not yet verified a real answer through each one, so try a low-stakes question first. If a CLI is not logged in, the run reports that seat as failed.
+**Test status:** these integrations are covered by automated tests with simulated providers. Only Codex CLI and a local Ollama model have answered live so far, so try a low-stakes question first. If a CLI is not logged in, the run reports that seat as failed.
 
 ### Check cited sources
 
