@@ -2,6 +2,16 @@
 
 All notable changes to Quorum are documented here.
 
+## v7.9.0 — Secure templates for your own setup
+
+- **`docs/INTEGRATIONS.md` added.** A guide to picking the best option for your setup, with templates for local models, CLI sign-in, Kubernetes, Docker, systemd, HashiCorp Vault, AWS, Google Cloud, Azure, personal vaults and environment variables. Why: secure setup should fit the stack a person already runs.
+- **`api_key_file`.** Reads a platform-mounted secret. The opened file must be small, regular, and not writable by group or others or readable by others. Why: mounted secrets avoid environment variables and process lists.
+- **New key commands:** `az`, `bw`, `pass` and `doppler`. `kubectl` is excluded on purpose. Why: it would need broad cluster credentials on the machine.
+- **`doctor` shows the real error.** CLI errors keep the end of stderr, and advice separates a stale model, an expired login and a network fault. Why: Codex printed only its banner, and "log in" was wrong for an unavailable model.
+- **Login storage notice.** `doctor` notes a Codex or Gemini login in a plaintext file and flags loose permissions, reading only the file's mode. Why: a working login can still be stored poorly.
+- **`doctor --live` tests only named providers.** Others are skipped and never contacted. Why: testing one provider should not need consent for all.
+- **Known limit:** templates pass Quorum's checks, but only Codex sign-in and local Ollama have run live.
+
 ## v7.8.0 — Evidence you can trace
 
 - **Meaning-safe claim IDs.** Normalization keeps symbols and units, and IDs grow to 64 bits. Why: "> 5 ms" and "< 5 ms" shared an ID and merged into one claim.

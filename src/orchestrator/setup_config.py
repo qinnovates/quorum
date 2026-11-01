@@ -63,6 +63,9 @@ API_TEMPLATE = """
 # HOSTED OR SELF-HOSTED API (any OpenAI-compatible endpoint).
 # Steps: create a dedicated key with a spending limit, store it in your vault,
 # then choose ONE key line below. HTTPS is required for remote endpoints.
+# HashiCorp Vault, AWS, Google Cloud, Azure, Kubernetes, Docker, 1Password and more
+# have copy-ready templates at:
+# https://github.com/qinnovates/quorum/blob/main/docs/INTEGRATIONS.md
 # [providers.<short-name>]
 # type = "openai_compatible"
 # model = "<model-id>"

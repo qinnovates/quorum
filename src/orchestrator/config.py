@@ -11,7 +11,7 @@ import re
 import shutil
 import tomllib
 from dataclasses import dataclass, field, fields, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from .evidence import RoleEvidence
@@ -25,14 +25,16 @@ from .providers import (
     Provider,
 )
 from .router import Candidate
-from .secrets import Secret, from_command, from_env
+from .secrets import Secret, from_command, from_env, from_file
 
 DEFAULT_MIN_FAMILIES = 2
-ALLOWED_KEY_BINARIES = frozenset({"security", "secret-tool", "op", "vault", "sops", "aws", "gcloud"})
+ALLOWED_KEY_BINARIES = frozenset({
+    "security", "secret-tool", "pass", "op", "bw", "vault", "doppler", "sops", "aws", "gcloud", "az",
+})
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 UNTRUSTED_SECTIONS = frozenset({"panel", "limits"})
 CLI_BINARY_FAMILIES = {"gemini_cli": ("gemini", "gemini"), "codex_cli": ("codex", "openai")}
-CREDENTIAL_REFERENCE_KEYS = frozenset({"api_key_env", "api_key_cmd"})
+CREDENTIAL_REFERENCE_KEYS = frozenset({"api_key_env", "api_key_cmd", "api_key_file"})
 ALLOWED_CLI_ARGS = {
     "gemini": frozenset({"--skip-trust", "--approval-mode", "plan", "-p", "-o", "json", "text", "-m"}),
     "codex": frozenset({"exec", "--skip-git-repo-check", "--sandbox", "read-only", "--json", "-", "-m"}),
@@ -52,7 +54,7 @@ def _literal_key_message(name: str, key: str) -> str:
     return (
         f"refusing to load config: providers.{name}.{key} is a literal value. "
         "Quorum never reads secrets from config files. Use api_key_env = \"NAME\" or "
-        "api_key_cmd = [...] in your user config, remove the value from the file and "
+        "api_key_cmd = [...] or api_key_file = \"/path\" in your user config, remove the value from the file and "
         "shell history, and rotate it. The value was not logged."
     )
 
@@ -110,17 +112,27 @@ def _with_model_flag(command: list[str], binary: str, model: str) -> list[str]:
     return [*command[:position], "-m", model, *command[position:]]
 
 
+def _validated_key_path(name: str, raw_path: object) -> str:
+    """Mounted secrets have fixed absolute paths, so anything else is a mistake."""
+    path = PurePosixPath(str(raw_path))
+    if not path.is_absolute() or ".." in path.parts or "\0" in str(raw_path):
+        raise ConfigError(f"providers.{name}.api_key_file must be an absolute path with no '..'")
+    return str(path)
+
+
 def _credential(name: str, spec: dict) -> Secret | None:
     present = CREDENTIAL_REFERENCE_KEYS & spec.keys()
     if not present:
         return None
     if len(present) > 1:
-        raise ConfigError(f"providers.{name}: set api_key_env or api_key_cmd, not both")
+        raise ConfigError(f"providers.{name}: set only one of {sorted(CREDENTIAL_REFERENCE_KEYS)}")
     if "api_key_env" in spec:
         env_name = str(spec["api_key_env"])
         if not _ENV_NAME.match(env_name):
             raise ConfigError(f"providers.{name}.api_key_env must be a variable name, not a value")
         return from_env(env_name)
+    if "api_key_file" in spec:
+        return from_file(_validated_key_path(name, spec["api_key_file"]))
     argv = list(spec["api_key_cmd"])
     _validate_binary(name, argv, ALLOWED_KEY_BINARIES, "api_key_cmd")
     return from_command(argv)
